@@ -71,15 +71,19 @@ pnpm start
 # build
 docker build -t nawa .
 
-# run (example)
+# run (example — Postgres must be reachable from the container)
 docker run --rm -p 3000:3000 \
-  -e DATABASE_URL=postgresql://... \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/nawa \
   -e ENABLE_PUBLIC_DEMO=true \
   -e NEXT_PUBLIC_SITE_URL=https://your-app.example.com \
   nawa
 ```
 
-`Dockerfile` runs `pnpm db:prepare && pnpm start` so migrations and curriculum seed apply on boot.
+`docker-entrypoint.sh` runs as user `nextjs` with a writable `$HOME`, applies `prisma migrate deploy`, seeds curriculum, then starts Next with:
+
+`node node_modules/next/dist/bin/next start`
+
+(Prisma client is generated at **image build** time; the container does not re-run `prisma generate`.)
 
 Fly.io: see `fly.toml`. Create the app, attach Postgres, set secrets, then `fly deploy`.
 
