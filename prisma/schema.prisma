@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Ability {
+  READING
+  LISTENING
+  WRITING
+  SPEAKING
+}
+
+enum MasteryState {
+  ENCOUNTERED
+  RECOGNIZED
+  RETRIEVED
+  APPLIED
+  RETAINED
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETE
+}
+
+model Learner {
+  id        String            @id @db.Uuid
+  createdAt DateTime          @default(now())
+  mastery   MasterySnapshot[]
+  evidence  EvidenceEvent[]
+  sessions  StudySession[]
+}
+
+model KnowledgeAtomRecord {
+  id      String @id
+  payload Json
+}
+
+model MasterySnapshot {
+  learnerId                 String       @db.Uuid
+  atomId                    String
+  ability                   Ability
+  state                     MasteryState
+  successfulRetrievals      Int          @default(0)
+  lastAttemptAt             DateTime?
+  lastSuccessfulRetrievalAt DateTime?
+  nextReviewAt              DateTime
+  learner                   Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@id([learnerId, atomId, ability])
+  @@index([learnerId, nextReviewAt])
+}
+
+model EvidenceEvent {
+  id                 String       @id @db.Uuid
+  learnerId          String       @db.Uuid
+  sessionId          String       @db.Uuid
+  taskId             String
+  atomId             String
+  ability            Ability
+  occurredAt         DateTime
+  correct            Boolean
+  responseMode       String
+  helpLevel          Int
+  latencyMs          Int
+  confidence         Int
+  novelContext       Boolean
+  analysisConfidence Float?
+  learner            Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  session            StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([learnerId, atomId, ability, occurredAt])
+}
+
+model StudySession {
+  id               String          @id @default(uuid()) @db.Uuid
+  learnerId        String          @db.Uuid
+  durationMinutes  Int
+  plan             Json
+  currentTaskIndex Int             @default(0)
+  status           SessionStatus   @default(ACTIVE)
+  startedAt        DateTime
+  updatedAt        DateTime        @updatedAt
+  learner          Learner         @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  evidence         EvidenceEvent[]
+
+  @@index([learnerId, status, updatedAt])
+}
