@@ -6,20 +6,40 @@ import { applyEvidence, createInitialSnapshot } from "@/domain/mastery/apply-evi
 import { buildSessionPlan } from "@/domain/sessions/build-session-plan";
 import { db } from "@/server/db";
 
+export async function ensureLearner(learnerId: string): Promise<void> {
+  await db.learner.upsert({
+    where: { id: learnerId },
+    update: {},
+    create: { id: learnerId },
+  });
+}
+
+export async function assertSessionOwnedBy(sessionId: string, learnerId: string): Promise<SessionPlan> {
+  const session = await db.studySession.findUnique({ where: { id: sessionId } });
+  if (!session || session.learnerId !== learnerId) {
+    throw new Error("Session does not belong to this learner");
+  }
+  return session.plan as unknown as SessionPlan;
+}
+
 export async function startOrResumeSession(input: {
   learnerId: string;
   durationMinutes: 30 | 45 | 60;
   now: string;
 }): Promise<StudySessionView> {
+  await ensureLearner(input.learnerId);
+
   const active = await db.studySession.findFirst({
     where: { learnerId: input.learnerId, status: "ACTIVE" },
     orderBy: { updatedAt: "desc" },
   });
-  if (active) return {
-    plan: active.plan as unknown as SessionPlan,
-    currentTaskIndex: active.currentTaskIndex,
-    status: active.status,
-  };
+  if (active) {
+    return {
+      plan: active.plan as unknown as SessionPlan,
+      currentTaskIndex: active.currentTaskIndex,
+      status: active.status,
+    };
+  }
 
   const rows = await db.masterySnapshot.findMany({ where: { learnerId: input.learnerId } });
   const mastery = rows.map((row) => ({
@@ -48,16 +68,31 @@ export async function recordEvidence(input: {
   taskId: string;
   event: EvidenceEvent;
 }): Promise<MasterySnapshot> {
+  await assertSessionOwnedBy(input.sessionId, input.event.learnerId);
+
   return db.$transaction(async (tx) => {
     const existing = await tx.masterySnapshot.findUnique({
-      where: { learnerId_atomId_ability: { learnerId: input.event.learnerId, atomId: input.event.atomId, ability: input.event.ability } },
+      where: {
+        learnerId_atomId_ability: {
+          learnerId: input.event.learnerId,
+          atomId: input.event.atomId,
+          ability: input.event.ability,
+        },
+      },
     });
-    const initial = existing ? ({
-      ...existing,
-      lastAttemptAt: existing.lastAttemptAt?.toISOString() ?? null,
-      lastSuccessfulRetrievalAt: existing.lastSuccessfulRetrievalAt?.toISOString() ?? null,
-      nextReviewAt: existing.nextReviewAt.toISOString(),
-    } as MasterySnapshot) : createInitialSnapshot(input.event.learnerId, input.event.atomId, input.event.ability, input.event.occurredAt);
+    const initial = existing
+      ? ({
+          ...existing,
+          lastAttemptAt: existing.lastAttemptAt?.toISOString() ?? null,
+          lastSuccessfulRetrievalAt: existing.lastSuccessfulRetrievalAt?.toISOString() ?? null,
+          nextReviewAt: existing.nextReviewAt.toISOString(),
+        } as MasterySnapshot)
+      : createInitialSnapshot(
+          input.event.learnerId,
+          input.event.atomId,
+          input.event.ability,
+          input.event.occurredAt,
+        );
     const next = applyEvidence(initial, input.event);
 
     await tx.evidenceEvent.create({
@@ -69,18 +104,32 @@ export async function recordEvidence(input: {
       },
     });
     await tx.masterySnapshot.upsert({
-      where: { learnerId_atomId_ability: { learnerId: next.learnerId, atomId: next.atomId, ability: next.ability } },
+      where: {
+        learnerId_atomId_ability: {
+          learnerId: next.learnerId,
+          atomId: next.atomId,
+          ability: next.ability,
+        },
+      },
       update: {
-        state: next.state, successfulRetrievals: next.successfulRetrievals,
+        state: next.state,
+        successfulRetrievals: next.successfulRetrievals,
         lastAttemptAt: next.lastAttemptAt ? new Date(next.lastAttemptAt) : null,
-        lastSuccessfulRetrievalAt: next.lastSuccessfulRetrievalAt ? new Date(next.lastSuccessfulRetrievalAt) : null,
+        lastSuccessfulRetrievalAt: next.lastSuccessfulRetrievalAt
+          ? new Date(next.lastSuccessfulRetrievalAt)
+          : null,
         nextReviewAt: new Date(next.nextReviewAt),
       },
       create: {
-        learnerId: next.learnerId, atomId: next.atomId, ability: next.ability,
-        state: next.state, successfulRetrievals: next.successfulRetrievals,
+        learnerId: next.learnerId,
+        atomId: next.atomId,
+        ability: next.ability,
+        state: next.state,
+        successfulRetrievals: next.successfulRetrievals,
         lastAttemptAt: next.lastAttemptAt ? new Date(next.lastAttemptAt) : null,
-        lastSuccessfulRetrievalAt: next.lastSuccessfulRetrievalAt ? new Date(next.lastSuccessfulRetrievalAt) : null,
+        lastSuccessfulRetrievalAt: next.lastSuccessfulRetrievalAt
+          ? new Date(next.lastSuccessfulRetrievalAt)
+          : null,
         nextReviewAt: new Date(next.nextReviewAt),
       },
     });
@@ -88,12 +137,22 @@ export async function recordEvidence(input: {
   });
 }
 
-export async function advanceSession(sessionId: string, nextTaskIndex: number): Promise<void> {
+export async function advanceSession(
+  sessionId: string,
+  nextTaskIndex: number,
+  learnerId?: string,
+): Promise<void> {
+  if (learnerId) {
+    await assertSessionOwnedBy(sessionId, learnerId);
+  }
   const session = await db.studySession.findUniqueOrThrow({ where: { id: sessionId } });
   const plan = session.plan as unknown as SessionPlan;
   await db.studySession.update({
     where: { id: sessionId },
-    data: { currentTaskIndex: nextTaskIndex, status: nextTaskIndex >= plan.tasks.length ? "COMPLETE" : "ACTIVE" },
+    data: {
+      currentTaskIndex: nextTaskIndex,
+      status: nextTaskIndex >= plan.tasks.length ? "COMPLETE" : "ACTIVE",
+    },
   });
 }
 

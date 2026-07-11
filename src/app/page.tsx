@@ -3,10 +3,30 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <main className="today-shell">
-      <p className="eyebrow">NAWA · MODERN STANDARD ARABIC</p>
+      <p className="eyebrow">NAWA · PUBLIC STUDY ROOM DEMO</p>
       <h1>Your Arabic, built daily</h1>
-      <p className="lede">Retrieve, learn, read, produce, and reflect in one focused session.</p>
-      <Link className="primary-action" href="/study">Begin today’s study</Link>
+      <p className="lede">
+        Nawa is a serious Modern Standard Arabic Study Room for adult beginners — not a game,
+        not a chat bot. Open a focused session: retrieve, learn, read, produce, and close with
+        ability-specific progress.
+      </p>
+
+      <ul className="home-points" aria-label="What this demo includes">
+        <li>30–60 minute Study Room with six stable stages</li>
+        <li>MSA-only beginner curriculum spine</li>
+        <li>Separate reading, listening, writing, and speaking signals</li>
+        <li>Isolated browser session — your progress is not shared with other visitors</li>
+      </ul>
+
+      <div className="home-actions">
+        <Link className="primary-action" href="/study">
+          Begin today’s study
+        </Link>
+        <p className="home-note">
+          Public demo of the foundation slice. No account required. Full notebook, offline sync,
+          and speech coaching are later roadmap.
+        </p>
+      </div>
     </main>
   );
 }

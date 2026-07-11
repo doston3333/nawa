@@ -13,9 +13,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       ...process.env,
+      ENABLE_PUBLIC_DEMO: "true",
       ENABLE_DEMO_LEARNER: "true",
-      DEMO_LEARNER_ID: process.env.DEMO_LEARNER_ID ?? "00000000-0000-4000-8000-000000000001",
-      DATABASE_URL: process.env.DATABASE_URL ?? "postgresql://nawa:nawa_local@localhost:5439/nawa",
+      DATABASE_URL:
+        process.env.DATABASE_URL ?? "postgresql://nawa:nawa_local@localhost:5439/nawa",
     },
   },
 });
