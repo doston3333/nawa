@@ -14,6 +14,9 @@ export interface KnowledgeAtom {
   englishGloss: string;
   prerequisiteIds: string[];
   abilities: Ability[];
+  /** Optional morphology for Language Ink lite */
+  root?: string;
+  patternNote?: string;
 }
 
 export interface EvidenceEvent {
@@ -53,6 +56,8 @@ export interface SessionTask {
   promptArabic: string | null;
   expectedAnswer: string | null;
   estimatedMinutes: number;
+  /** Optional gloss for Language Ink on the Arabic surface */
+  inkAtomId?: string | null;
 }
 
 export interface SessionPlan {

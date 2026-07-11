@@ -10,6 +10,7 @@ describe("Today page", () => {
       "/study",
     );
     expect(screen.getByText(/serious Modern Standard Arabic Study Room/i)).toBeVisible();
-    expect(screen.getByText(/Public demo/i)).toBeVisible();
+    expect(screen.getByText(/Public demo|Demo honesty/i)).toBeVisible();
+    expect(screen.getByText(/Rate limits/i)).toBeVisible();
   });
 });

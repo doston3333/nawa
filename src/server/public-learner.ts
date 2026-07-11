@@ -36,7 +36,7 @@ export async function resolvePublicLearnerId(): Promise<string> {
   jar.set(LEARNER_COOKIE, learnerId, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") === true,
     path: "/",
     maxAge: 60 * 60 * 24 * 400,
   });

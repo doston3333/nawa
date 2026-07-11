@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import { StageRail } from "./stage-rail";
 import { TaskCard } from "./task-card";
 import { ProgressSummary } from "./progress-summary";
@@ -16,6 +18,24 @@ const stageLabels = {
 
 export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }) {
   const session = useStudySession(durationMinutes);
+  const [resetting, setResetting] = useState(false);
+  const [resetNote, setResetNote] = useState<string | null>(null);
+
+  async function handleReset() {
+    setResetting(true);
+    setResetNote(null);
+    try {
+      const response = await fetch("/api/study/reset", { method: "POST" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Unable to reset");
+      setResetNote(body.message ?? "New anonymous notebook started.");
+      session.retry();
+    } catch (reason) {
+      setResetNote(reason instanceof Error ? reason.message : "Unable to reset");
+    } finally {
+      setResetting(false);
+    }
+  }
 
   if (session.loading) {
     return (
@@ -31,9 +51,18 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
     return (
       <main className="study-room-status">
         <p role="alert">{session.error}</p>
-        <button className="primary-action" type="button" onClick={session.retry}>
-          Retry
-        </button>
+        <p className="study-room-status-lede">
+          If this is a new browser, a fresh anonymous notebook will be created. Cookie loss always
+          starts clean — that is expected in the public demo.
+        </p>
+        <div className="home-actions">
+          <button className="primary-action" type="button" onClick={session.retry}>
+            Retry
+          </button>
+          <button className="secondary-action" type="button" onClick={() => void handleReset()} disabled={resetting}>
+            Reset notebook
+          </button>
+        </div>
       </main>
     );
   }
@@ -50,6 +79,14 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
     return (
       <main className="study-room study-room-complete">
         <ProgressSummary counts={session.counts} />
+        <div className="complete-actions">
+          <Link className="primary-action" href="/">
+            Back to Nawa home
+          </Link>
+          <button className="secondary-action" type="button" onClick={() => void handleReset()} disabled={resetting}>
+            Reset notebook
+          </button>
+        </div>
       </main>
     );
   }
@@ -71,15 +108,26 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
 
       <div className="study-canvas">
         <header className="study-canvas-header">
-          <p className="study-canvas-kicker" aria-live="polite">
-            {stageLabels[task.stage]}
-          </p>
+          <div className="study-canvas-top">
+            <p className="study-canvas-kicker" aria-live="polite">
+              {stageLabels[task.stage]}
+            </p>
+            <button
+              type="button"
+              className="text-action"
+              onClick={() => void handleReset()}
+              disabled={resetting}
+            >
+              Reset notebook
+            </button>
+          </div>
           <div className="study-canvas-heading-row">
             <h1 className="study-canvas-title">{stageLabels[task.stage]}</h1>
             <p className="study-canvas-minutes">
               <span className="study-canvas-minutes-value">{task.estimatedMinutes} min</span>
             </p>
           </div>
+          {resetNote ? <p className="reset-note" role="status">{resetNote}</p> : null}
         </header>
 
         {session.error ? (

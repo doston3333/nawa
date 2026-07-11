@@ -13,18 +13,28 @@ export default function HomePage() {
 
       <ul className="home-points" aria-label="What this demo includes">
         <li>30–60 minute Study Room with six stable stages</li>
-        <li>MSA-only beginner curriculum spine</li>
+        <li>MSA-only beginner curriculum spine (~40 high-utility forms)</li>
         <li>Separate reading, listening, writing, and speaking signals</li>
         <li>Isolated browser session — your progress is not shared with other visitors</li>
       </ul>
+
+      <aside className="demo-limits" aria-label="Demo limits">
+        <p className="demo-limits-title">Demo honesty</p>
+        <ul>
+          <li>Anonymous cookie identity — clearing cookies starts a new notebook.</li>
+          <li>No accounts, offline sync, speech scoring, or full A1 curriculum yet.</li>
+          <li>Rate limits protect the shared demo (slow down if you hit 429).</li>
+          <li>Use “Reset notebook” in the Study Room to start clean.</li>
+        </ul>
+      </aside>
 
       <div className="home-actions">
         <Link className="primary-action" href="/study">
           Begin today’s study
         </Link>
         <p className="home-note">
-          Public demo of the foundation slice. No account required. Full notebook, offline sync,
-          and speech coaching are later roadmap.
+          Public foundation slice. Notebook, Reader, Language Ink full notes, and accounts are later
+          roadmap — this demo teases Ink inside the session only.
         </p>
       </div>
     </main>

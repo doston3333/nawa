@@ -140,6 +140,126 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   color: var(--ink-faint);
 }
 
+.demo-limits {
+  margin-top: 1.75rem;
+  max-width: 36rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--saffron-soft) 45%, var(--surface));
+}
+
+.demo-limits-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--saffron) 70%, var(--ink));
+}
+
+.demo-limits ul {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.secondary-action,
+.text-action {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.text-action {
+  border: 0;
+  min-height: 36px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.study-canvas-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.reset-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.complete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.language-ink {
+  margin-top: 0.75rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.language-ink-trigger,
+.language-ink-close {
+  min-height: 44px;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.language-ink-panel {
+  width: min(100%, 22rem);
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-soft);
+  text-align: start;
+}
+
+.language-ink-dl {
+  margin: 0 0 0.75rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.language-ink-dl dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.language-ink-dl dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.05rem;
+}
+
 .primary-action {
   display: inline-flex;
   min-height: 44px;

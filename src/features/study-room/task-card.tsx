@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { HelpLevel, SessionTask } from "@/domain/learning/types";
 import { CoachPanel } from "./coach-panel";
 import { DiacriticText } from "./diacritic-text";
+import { LanguageInk } from "./language-ink";
 
 export interface TaskSubmission {
   answer: string;
@@ -49,6 +50,7 @@ export function TaskCard({
   };
 
   const diacriticLevel = helpLevel >= 2 ? "FULL" : "NONE";
+  const inkId = task.inkAtomId ?? task.atomIds[0] ?? null;
 
   return (
     <div className="task-card">
@@ -63,10 +65,12 @@ export function TaskCard({
               plain={task.promptArabic}
               level={diacriticLevel}
             />
+            {inkId ? <LanguageInk atomId={inkId} label="Inspect this form" /> : null}
           </div>
         ) : (
-          <div className="task-arabic-stage task-arabic-stage--empty" aria-hidden="true">
+          <div className="task-arabic-stage task-arabic-stage--empty">
             <p className="arabic-prompt arabic-prompt--muted">···</p>
+            {inkId ? <LanguageInk atomId={inkId} label="Inspect related form" /> : null}
           </div>
         )}
 

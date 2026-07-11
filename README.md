@@ -95,14 +95,34 @@ pnpm typecheck
 pnpm lint
 pnpm build
 pnpm test:e2e   # requires Playwright browsers + running DB
+curl -s http://localhost:3000/api/health
 ```
+
+## Runbook (public demo)
+
+| Symptom | Check | Action |
+|---------|--------|--------|
+| Health 503 / “demo unavailable” | `GET /api/health` → `db` / `demo` | Fix `DATABASE_URL`; set `ENABLE_PUBLIC_DEMO=true` |
+| Migrate failed on boot | Container logs `prisma migrate deploy` | Apply migrations manually: `pnpm db:migrate:deploy` |
+| Users get 429 | Logs `rate_limited` | Expected under abuse; limits are process-local (10 starts/IP/hr, 120 attempts/learner/hr) |
+| “Lost progress” after new browser | Cookie `nawa_learner_id` | Expected — anonymous demo; use Reset notebook for intentional clean start |
+| Session start 503 | Logs `session_start_failed` | DB connectivity / demo flag |
+
+Structured logs are JSON lines on stdout (`session_started`, `attempt_recorded`, `session_completed`, `rate_limited`).
 
 ## Program boundary
 
-This is the **foundation Study Room vertical slice**, hardened for a public demo.
+This is the **foundation Study Room vertical slice**, expanded with:
+
+- ~40-atom beginner MSA spine + varied session content  
+- Cookie isolation, rate limits, reset notebook  
+- Language Ink lite (in-session micro-panel only)  
+- Health endpoint + structured logs  
+
+Still later:
 
 - Plan 2: accounts, offline sync  
-- Plan 3: Notebook, Reader, Language Ink  
+- Plan 3: Notebook, Reader, full Language Ink notes  
 - Plan 4: speech / handwriting / bounded tutor  
 
 See `docs/superpowers/plans/2026-07-11-nawa-v1-program-roadmap.md`.
