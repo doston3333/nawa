@@ -27,12 +27,19 @@ enum SessionStatus {
   COMPLETE
 }
 
+enum LessonProgressStatus {
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETE
+}
+
 model Learner {
   id        String            @id @db.Uuid
   createdAt DateTime          @default(now())
   mastery   MasterySnapshot[]
   evidence  EvidenceEvent[]
   sessions  StudySession[]
+  lessons   LessonProgress[]
 }
 
 model KnowledgeAtomRecord {
@@ -89,4 +96,18 @@ model StudySession {
   evidence         EvidenceEvent[]
 
   @@index([learnerId, status, updatedAt])
+}
+
+model LessonProgress {
+  learnerId    String               @db.Uuid
+  lessonId     String
+  status       LessonProgressStatus @default(AVAILABLE)
+  scoreCorrect Int                  @default(0)
+  scoreTotal   Int                  @default(0)
+  completedAt  DateTime?
+  updatedAt    DateTime             @updatedAt
+  learner      Learner              @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@id([learnerId, lessonId])
+  @@index([learnerId, status])
 }

@@ -45,11 +45,11 @@ export interface MasterySnapshot {
   nextReviewAt: string;
 }
 
-export type TaskKind = "CALIBRATION" | "RECALL" | "LESSON" | "READ" | "PRODUCE" | "JOURNAL";
+export type TaskKind = "CALIBRATION" | "RECALL" | "LESSON" | "READ" | "PRODUCE" | "JOURNAL" | "SELECT";
 
 export interface SessionTask {
   id: string;
-  stage: SessionStage;
+  stage: SessionStage | "LESSON";
   kind: TaskKind;
   atomIds: string[];
   prompt: string;
@@ -58,7 +58,12 @@ export interface SessionTask {
   estimatedMinutes: number;
   /** Optional gloss for Language Ink on the Arabic surface */
   inkAtomId?: string | null;
+  /** Multiple-choice options for SELECT exercises */
+  choices?: string[] | null;
+  responseMode?: ResponseMode;
 }
+
+export type SessionMode = "STUDY_ROOM" | "LESSON";
 
 export interface SessionPlan {
   id: string;
@@ -66,10 +71,54 @@ export interface SessionPlan {
   durationMinutes: 30 | 45 | 60;
   createdAt: string;
   tasks: SessionTask[];
+  mode?: SessionMode;
+  lessonId?: string | null;
 }
 
 export interface StudySessionView {
   plan: SessionPlan;
   currentTaskIndex: number;
   status: "ACTIVE" | "COMPLETE";
+}
+
+export type LessonNodeStatus = "LOCKED" | "AVAILABLE" | "IN_PROGRESS" | "COMPLETE";
+
+export interface LessonDef {
+  id: string;
+  unitId: string;
+  title: string;
+  order: number;
+  atomIds: string[];
+  exerciseCount: number;
+}
+
+export interface UnitDef {
+  id: string;
+  title: string;
+  subtitle: string;
+  order: number;
+  lessonIds: string[];
+}
+
+export interface LessonProgressRecord {
+  lessonId: string;
+  status: "AVAILABLE" | "IN_PROGRESS" | "COMPLETE";
+  scoreCorrect: number;
+  scoreTotal: number;
+  completedAt: string | null;
+}
+
+export interface PathLessonView extends LessonDef {
+  status: LessonNodeStatus;
+  scoreCorrect: number;
+  scoreTotal: number;
+}
+
+export interface PathUnitView extends UnitDef {
+  lessons: PathLessonView[];
+}
+
+export interface LearnPathView {
+  units: PathUnitView[];
+  nextLessonId: string | null;
 }

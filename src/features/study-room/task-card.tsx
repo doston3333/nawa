@@ -18,10 +18,12 @@ export function TaskCard({
   task,
   onSubmit,
   submitting = false,
+  compact = false,
 }: {
   task: SessionTask;
   onSubmit: (submission: TaskSubmission) => void | Promise<void>;
   submitting?: boolean;
+  compact?: boolean;
 }) {
   const [answer, setAnswer] = useState("");
   const [helpLevel, setHelpLevel] = useState<HelpLevel>(0);
@@ -29,6 +31,8 @@ export function TaskCard({
   const [awaitingRetry, setAwaitingRetry] = useState(false);
   const [confidence, setConfidence] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [startedAt] = useState(() => new Date().toISOString());
+
+  const isSelect = Boolean(task.choices && task.choices.length > 0);
 
   const handleSubmit = () => {
     const submission: TaskSubmission = {
@@ -39,7 +43,7 @@ export function TaskCard({
       confidence,
     };
 
-    if (helpLevel === 7 && !awaitingRetry && task.expectedAnswer) {
+    if (helpLevel === 7 && !awaitingRetry && task.expectedAnswer && !isSelect) {
       setAttempted(true);
       setAwaitingRetry(true);
       return;
@@ -53,7 +57,7 @@ export function TaskCard({
   const inkId = task.inkAtomId ?? task.atomIds[0] ?? null;
 
   return (
-    <div className="task-card">
+    <div className={`task-card${compact ? " task-card--compact" : ""}`}>
       <section className="task-main">
         <p className="task-prompt">{task.prompt}</p>
 
@@ -67,29 +71,49 @@ export function TaskCard({
             />
             {inkId ? <LanguageInk atomId={inkId} label="Inspect this form" /> : null}
           </div>
-        ) : (
+        ) : inkId && !isSelect ? (
           <div className="task-arabic-stage task-arabic-stage--empty">
-            <p className="arabic-prompt arabic-prompt--muted">···</p>
-            {inkId ? <LanguageInk atomId={inkId} label="Inspect related form" /> : null}
+            <LanguageInk atomId={inkId} label="Inspect related form" />
+          </div>
+        ) : null}
+
+        {isSelect ? (
+          <fieldset className="choice-fieldset">
+            <legend>Choose one</legend>
+            <div className="choice-options">
+              {task.choices!.map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className={`choice-option${answer === choice ? " is-selected" : ""}`}
+                  onClick={() => setAnswer(choice)}
+                  aria-pressed={answer === choice}
+                >
+                  <span lang={/[\u0600-\u06FF]/.test(choice) ? "ar" : undefined} dir={/[\u0600-\u06FF]/.test(choice) ? "rtl" : "auto"}>
+                    {choice}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        ) : (
+          <div className="answer-field">
+            <label className="answer-field-label" htmlFor="task-answer">
+              My answer
+            </label>
+            <textarea
+              id="task-answer"
+              className="answer-field-input"
+              value={answer}
+              onChange={(event) => setAnswer(event.target.value)}
+              dir="auto"
+              placeholder="Type in Arabic when you can…"
+              rows={compact ? 3 : 4}
+              autoComplete="off"
+              spellCheck={false}
+            />
           </div>
         )}
-
-        <div className="answer-field">
-          <label className="answer-field-label" htmlFor="task-answer">
-            My answer
-          </label>
-          <textarea
-            id="task-answer"
-            className="answer-field-input"
-            value={answer}
-            onChange={(event) => setAnswer(event.target.value)}
-            dir="auto"
-            placeholder="Type in Arabic when you can…"
-            rows={4}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
 
         {awaitingRetry && task.expectedAnswer ? (
           <p className="expected-answer" lang="ar" dir="rtl">
@@ -98,24 +122,26 @@ export function TaskCard({
           </p>
         ) : null}
 
-        <fieldset className="confidence-fieldset">
-          <legend>How sure were you?</legend>
-          <div className="confidence-options" role="presentation">
-            {([1, 2, 3, 4, 5] as const).map((value) => (
-              <label key={value} className={`confidence-option${confidence === value ? " is-selected" : ""}`}>
-                <input
-                  type="radio"
-                  name="confidence"
-                  value={value}
-                  checked={confidence === value}
-                  onChange={() => setConfidence(value)}
-                />
-                <span>{value}</span>
-              </label>
-            ))}
-          </div>
-          <p className="confidence-hint">1 unsure · 5 certain</p>
-        </fieldset>
+        {!compact ? (
+          <fieldset className="confidence-fieldset">
+            <legend>How sure were you?</legend>
+            <div className="confidence-options" role="presentation">
+              {([1, 2, 3, 4, 5] as const).map((value) => (
+                <label key={value} className={`confidence-option${confidence === value ? " is-selected" : ""}`}>
+                  <input
+                    type="radio"
+                    name="confidence"
+                    value={value}
+                    checked={confidence === value}
+                    onChange={() => setConfidence(value)}
+                  />
+                  <span>{value}</span>
+                </label>
+              ))}
+            </div>
+            <p className="confidence-hint">1 unsure · 5 certain</p>
+          </fieldset>
+        ) : null}
 
         <div className="task-actions">
           <button
@@ -129,7 +155,9 @@ export function TaskCard({
         </div>
       </section>
 
-      <CoachPanel level={helpLevel} attempted={attempted} onAdvance={setHelpLevel} />
+      {!compact ? (
+        <CoachPanel level={helpLevel} attempted={attempted} onAdvance={setHelpLevel} />
+      ) : null}
     </div>
   );
 }

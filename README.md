@@ -2,7 +2,7 @@
 
 Nawa is a serious Modern Standard Arabic learning notebook. This repository ships a **public Study Room demo**: focused 30–60 minute sessions with ability-specific progress, no gamification.
 
-Open the app → **Begin today’s study** → complete a session in the browser. No account required.
+Open the app → **Continue path** → short modular lessons (unit → lesson). Optional long Study Room at `/study`. No account required.
 
 ## What visitors get
 

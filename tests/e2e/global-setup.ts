@@ -9,5 +9,6 @@ export default async function globalSetup() {
   await db.evidenceEvent.deleteMany();
   await db.studySession.deleteMany();
   await db.masterySnapshot.deleteMany();
+  await db.lessonProgress.deleteMany();
   await db.$disconnect();
 }

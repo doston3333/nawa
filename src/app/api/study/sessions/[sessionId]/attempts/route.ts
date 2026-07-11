@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { EvidenceEvent } from "@/domain/learning/types";
+import type { EvidenceEvent, SessionPlan } from "@/domain/learning/types";
 import { resolvePublicLearnerId } from "@/server/public-learner";
 import {
   advanceSession,
@@ -8,8 +8,13 @@ import {
   getAbilityCounts,
   recordEvidence,
 } from "@/server/repositories/study-repository";
+import {
+  completeLessonAfterSession,
+  recordLessonAttemptScore,
+} from "@/server/repositories/lesson-repository";
 import { checkRateLimit } from "@/server/rate-limit";
 import { logEvent, logLearnerRef } from "@/server/log";
+import { db } from "@/server/db";
 
 const eventSchema = z.object({
   id: z.uuid(),
@@ -69,7 +74,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
     }
 
     const { sessionId } = await context.params;
-    await assertSessionOwnedBy(sessionId, learnerId);
+    const plan = await assertSessionOwnedBy(sessionId, learnerId);
 
     const mastery = parsed.data.event
       ? await recordEvidence({
@@ -78,6 +83,15 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
           event: parsed.data.event as EvidenceEvent,
         })
       : null;
+
+    if (plan.mode === "LESSON" && plan.lessonId && parsed.data.event) {
+      await recordLessonAttemptScore({
+        learnerId,
+        lessonId: plan.lessonId,
+        correct: parsed.data.event.correct,
+      });
+    }
+
     await advanceSession(sessionId, parsed.data.nextTaskIndex, learnerId);
     const counts = await getAbilityCounts(learnerId);
 
@@ -87,16 +101,43 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
       taskId: parsed.data.taskId,
       nextTaskIndex: parsed.data.nextTaskIndex,
       hasEvidence: Boolean(parsed.data.event),
+      mode: plan.mode ?? "STUDY_ROOM",
     });
 
-    if (parsed.data.nextTaskIndex >= 6) {
+    let lesson: { completed: boolean; nextLessonId: string | null; passed?: boolean } | null = null;
+    const finished = parsed.data.nextTaskIndex >= plan.tasks.length;
+
+    if (finished) {
       logEvent("session_completed", {
         learner: logLearnerRef(learnerId),
         sessionId,
+        mode: plan.mode ?? "STUDY_ROOM",
       });
+      if (plan.mode === "LESSON" && plan.lessonId) {
+        lesson = await completeLessonAfterSession({
+          learnerId,
+          lessonId: plan.lessonId,
+        });
+        logEvent("lesson_completed", {
+          learner: logLearnerRef(learnerId),
+          lessonId: plan.lessonId,
+          next: lesson.nextLessonId,
+          passed: lesson.passed,
+        });
+      }
     }
 
-    return NextResponse.json({ mastery, counts });
+    // Refresh plan status from DB
+    const session = await db.studySession.findUnique({ where: { id: sessionId } });
+    const livePlan = (session?.plan as unknown as SessionPlan) ?? plan;
+
+    return NextResponse.json({
+      mastery,
+      counts,
+      lesson,
+      status: finished ? "COMPLETE" : "ACTIVE",
+      plan: livePlan,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to record attempt";
     const status = message.includes("does not belong") ? 403 : 503;

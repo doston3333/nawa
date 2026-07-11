@@ -92,6 +92,7 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
   }
 
   const task = session.currentTask;
+  const stage = task.stage === "LESSON" ? "ARRIVAL" : task.stage;
   const remainingMinutes = session.view.plan.tasks
     .slice(session.view.currentTaskIndex)
     .reduce((sum, item) => sum + item.estimatedMinutes, 0);
@@ -99,7 +100,7 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
   return (
     <main className="study-room">
       <StageRail
-        active={task.stage}
+        active={stage}
         remainingMinutes={remainingMinutes}
         durationMinutes={session.view.plan.durationMinutes}
         taskIndex={session.view.currentTaskIndex}
@@ -110,7 +111,7 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
         <header className="study-canvas-header">
           <div className="study-canvas-top">
             <p className="study-canvas-kicker" aria-live="polite">
-              {stageLabels[task.stage]}
+              {stageLabels[stage]}
             </p>
             <button
               type="button"
@@ -122,7 +123,7 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
             </button>
           </div>
           <div className="study-canvas-heading-row">
-            <h1 className="study-canvas-title">{stageLabels[task.stage]}</h1>
+            <h1 className="study-canvas-title">{stageLabels[stage]}</h1>
             <p className="study-canvas-minutes">
               <span className="study-canvas-minutes-value">{task.estimatedMinutes} min</span>
             </p>

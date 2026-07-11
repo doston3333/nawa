@@ -260,6 +260,193 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   font-size: 1.05rem;
 }
 
+/* ── Learn path ──────────────────────────────────────── */
+
+.path-shell,
+.lesson-shell {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) 1.25rem 3rem;
+}
+
+.path-header h1,
+.lesson-title {
+  font-family: var(--font-display), Fraunces, Georgia, serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  margin: 0.35rem 0 0.75rem;
+  letter-spacing: -0.03em;
+}
+
+.path-lede {
+  color: var(--ink-soft);
+  line-height: 1.6;
+  max-width: 36rem;
+}
+
+.path-units {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.path-unit-header h2 {
+  margin: 0;
+  font-family: var(--font-display), Fraunces, Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.path-unit-header p {
+  margin: 0.25rem 0 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.path-lessons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.path-lesson-card {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface) 92%, white);
+  text-decoration: none;
+  color: inherit;
+  min-height: 3.5rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.path-lesson-card--locked {
+  opacity: 0.55;
+  background: color-mix(in oklab, var(--paper-deep) 40%, var(--surface));
+  box-shadow: none;
+}
+
+.path-lesson--complete .path-lesson-card {
+  border-color: color-mix(in oklab, var(--sage-deep) 50%, var(--border));
+  background: color-mix(in oklab, var(--sage) 35%, var(--surface));
+}
+
+.path-lesson--available .path-lesson-card,
+.path-lesson--in_progress .path-lesson-card {
+  border-color: color-mix(in oklab, var(--saffron) 40%, var(--border));
+}
+
+.path-lesson-order {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.path-lesson--locked .path-lesson-order {
+  background: var(--ink-faint);
+}
+
+.path-lesson--complete .path-lesson-order {
+  background: var(--focus);
+}
+
+.path-lesson-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.path-lesson-title {
+  font-weight: 650;
+}
+
+.path-lesson-status {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.lesson-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lesson-progress-label {
+  margin: 0 0 0.45rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.lesson-progress-track {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--sage);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.lesson-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--focus), color-mix(in oklab, var(--saffron) 70%, var(--focus)));
+}
+
+.task-card--compact {
+  grid-template-columns: 1fr;
+}
+
+.choice-fieldset {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--paper) 50%, var(--surface));
+}
+
+.choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.choice-option {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.choice-option.is-selected {
+  border-color: var(--ink);
+  background: color-mix(in oklab, var(--sage) 40%, var(--surface));
+  font-weight: 600;
+}
+
+.choice-option input {
+  margin: 0;
+}
+
 .primary-action {
   display: inline-flex;
   min-height: 44px;
