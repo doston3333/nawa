@@ -8,7 +8,7 @@ Open the app → **Begin today’s study** → complete a session in the browser
 
 - Isolated browser learner (httpOnly cookie) — concurrent visitors do not share sessions
 - Six-stage Study Room: Arrival → Retrieval → New concept → Input → Output → Close
-- Beginner MSA curriculum spine and immutable evidence → mastery
+- Beginner MSA spine (full abjad + ~200 words/phrases/grammar) and immutable evidence → mastery
 - Transparent reading / listening / writing / speaking counts at session end
 
 ## Prerequisites
@@ -114,7 +114,7 @@ Structured logs are JSON lines on stdout (`session_started`, `attempt_recorded`,
 
 This is the **foundation Study Room vertical slice**, expanded with:
 
-- ~40-atom beginner MSA spine + varied session content  
+- ~200-atom beginner MSA spine (full letters + dense lexicon) + varied session content  
 - Cookie isolation, rate limits, reset notebook  
 - Language Ink lite (in-session micro-panel only)  
 - Health endpoint + structured logs  

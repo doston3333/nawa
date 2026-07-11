@@ -1,0 +1,163 @@
+import type { KnowledgeAtom } from "@/domain/learning/types";
+import { atom } from "./atom";
+
+/** High-utility MSA words for absolute beginner → early A1. Ordered after letters. */
+export const WORD_ATOMS: KnowledgeAtom[] = [
+  // Greetings & courtesy
+  atom({ id: "word-marhaba", kind: "WORD", canonicalArabic: "مرحبا", vocalizedArabic: "مَرْحَبًا", englishGloss: "hello / welcome", prerequisiteIds: ["letter-mim", "letter-ra", "letter-ha"], root: "ر ح ب" }),
+  atom({ id: "word-salam", kind: "WORD", canonicalArabic: "سلام", vocalizedArabic: "سَلَام", englishGloss: "peace; hello", prerequisiteIds: ["letter-sin", "letter-lam", "letter-mim"], root: "س ل م" }),
+  atom({ id: "word-ahlan", kind: "WORD", canonicalArabic: "أهلا", vocalizedArabic: "أَهْلًا", englishGloss: "welcome", prerequisiteIds: ["letter-alif-hamza", "letter-ha", "letter-lam"] }),
+  atom({ id: "word-shukran", kind: "WORD", canonicalArabic: "شكرا", vocalizedArabic: "شُكْرًا", englishGloss: "thank you", prerequisiteIds: ["letter-shin", "letter-kaf", "letter-ra"], root: "ش ك ر" }),
+  atom({ id: "word-afwan", kind: "WORD", canonicalArabic: "عفوا", vocalizedArabic: "عَفْوًا", englishGloss: "you're welcome / excuse me", prerequisiteIds: ["letter-ain", "letter-fa", "letter-waw"], root: "ع ف و" }),
+  atom({ id: "word-min-fadlik", kind: "WORD", canonicalArabic: "من فضلك", vocalizedArabic: "مِنْ فَضْلِكَ", englishGloss: "please (to a man)", prerequisiteIds: ["letter-mim", "letter-nun", "letter-fa"], root: "ف ض ل" }),
+  atom({ id: "word-naam", kind: "WORD", canonicalArabic: "نعم", vocalizedArabic: "نَعَمْ", englishGloss: "yes", prerequisiteIds: ["letter-nun", "letter-ain", "letter-mim"] }),
+  atom({ id: "word-la", kind: "WORD", canonicalArabic: "لا", vocalizedArabic: "لَا", englishGloss: "no", prerequisiteIds: ["letter-lam", "letter-alif"] }),
+
+  // Pronouns & identity
+  atom({ id: "pronoun-ana", kind: "WORD", canonicalArabic: "أنا", vocalizedArabic: "أَنَا", englishGloss: "I", prerequisiteIds: ["letter-alif-hamza", "letter-nun"] }),
+  atom({ id: "pronoun-anta", kind: "WORD", canonicalArabic: "أنت", vocalizedArabic: "أَنْتَ", englishGloss: "you (m. sg.)", prerequisiteIds: ["letter-alif-hamza", "letter-nun", "letter-ta"] }),
+  atom({ id: "pronoun-anti", kind: "WORD", canonicalArabic: "أنتِ", vocalizedArabic: "أَنْتِ", englishGloss: "you (f. sg.)", prerequisiteIds: ["pronoun-anta"] }),
+  atom({ id: "pronoun-huwa", kind: "WORD", canonicalArabic: "هو", vocalizedArabic: "هُوَ", englishGloss: "he", prerequisiteIds: ["letter-ha", "letter-waw"] }),
+  atom({ id: "pronoun-hiya", kind: "WORD", canonicalArabic: "هي", vocalizedArabic: "هِيَ", englishGloss: "she", prerequisiteIds: ["letter-ha", "letter-ya"] }),
+  atom({ id: "pronoun-nahnu", kind: "WORD", canonicalArabic: "نحن", vocalizedArabic: "نَحْنُ", englishGloss: "we", prerequisiteIds: ["letter-nun", "letter-ha"] }),
+  atom({ id: "pronoun-hum", kind: "WORD", canonicalArabic: "هم", vocalizedArabic: "هُمْ", englishGloss: "they (m.)", prerequisiteIds: ["letter-ha", "letter-mim"] }),
+  atom({ id: "word-ism", kind: "WORD", canonicalArabic: "اسم", vocalizedArabic: "اِسْم", englishGloss: "name", prerequisiteIds: ["letter-alif", "letter-sin", "letter-mim"] }),
+  atom({ id: "word-ismi", kind: "WORD", canonicalArabic: "اسمي", vocalizedArabic: "اِسْمِي", englishGloss: "my name", prerequisiteIds: ["word-ism", "letter-ya"] }),
+
+  // People
+  atom({ id: "word-rajul", kind: "WORD", canonicalArabic: "رجل", vocalizedArabic: "رَجُل", englishGloss: "man", prerequisiteIds: ["letter-ra", "letter-jim", "letter-lam"], root: "ر ج ل" }),
+  atom({ id: "word-marah", kind: "WORD", canonicalArabic: "امرأة", vocalizedArabic: "اِمْرَأَة", englishGloss: "woman", prerequisiteIds: ["letter-mim", "letter-ra", "letter-alif-hamza"] }),
+  atom({ id: "word-walad", kind: "WORD", canonicalArabic: "ولد", vocalizedArabic: "وَلَد", englishGloss: "boy; child", prerequisiteIds: ["letter-waw", "letter-lam", "letter-dal"], root: "و ل د" }),
+  atom({ id: "word-bint", kind: "WORD", canonicalArabic: "بنت", vocalizedArabic: "بِنْت", englishGloss: "girl; daughter", prerequisiteIds: ["letter-ba", "letter-nun", "letter-ta"] }),
+  atom({ id: "word-ustadh", kind: "WORD", canonicalArabic: "أستاذ", vocalizedArabic: "أُسْتَاذ", englishGloss: "teacher (m.)", prerequisiteIds: ["letter-alif-hamza", "letter-sin", "letter-dhal"] }),
+  atom({ id: "word-talib", kind: "WORD", canonicalArabic: "طالب", vocalizedArabic: "طَالِب", englishGloss: "student (m.)", prerequisiteIds: ["letter-taa", "letter-lam", "letter-ba"], root: "ط ل ب" }),
+  atom({ id: "word-sadiq", kind: "WORD", canonicalArabic: "صديق", vocalizedArabic: "صَدِيق", englishGloss: "friend (m.)", prerequisiteIds: ["letter-sad", "letter-dal", "letter-qaf"], root: "ص د ق" }),
+  atom({ id: "word-ab", kind: "WORD", canonicalArabic: "أب", vocalizedArabic: "أَب", englishGloss: "father", prerequisiteIds: ["letter-alif-hamza", "letter-ba"] }),
+  atom({ id: "word-umm", kind: "WORD", canonicalArabic: "أم", vocalizedArabic: "أُمّ", englishGloss: "mother", prerequisiteIds: ["letter-alif-hamza", "letter-mim"] }),
+  atom({ id: "word-akh", kind: "WORD", canonicalArabic: "أخ", vocalizedArabic: "أَخ", englishGloss: "brother", prerequisiteIds: ["letter-alif-hamza", "letter-kha"] }),
+  atom({ id: "word-ukht", kind: "WORD", canonicalArabic: "أخت", vocalizedArabic: "أُخْت", englishGloss: "sister", prerequisiteIds: ["letter-alif-hamza", "letter-kha", "letter-ta"] }),
+  atom({ id: "word-usra", kind: "WORD", canonicalArabic: "أسرة", vocalizedArabic: "أُسْرَة", englishGloss: "family", prerequisiteIds: ["letter-alif-hamza", "letter-sin", "letter-ra", "letter-taa-marbuta"] }),
+  atom({ id: "word-insan", kind: "WORD", canonicalArabic: "إنسان", vocalizedArabic: "إِنْسَان", englishGloss: "human being", prerequisiteIds: ["letter-alif", "letter-nun", "letter-sin"] }),
+
+  // Home & places
+  atom({ id: "word-bayt", kind: "WORD", canonicalArabic: "بيت", vocalizedArabic: "بَيْت", englishGloss: "house; home", prerequisiteIds: ["letter-ba", "letter-ya", "letter-ta"], root: "ب ي ت" }),
+  atom({ id: "word-bab", kind: "WORD", canonicalArabic: "باب", vocalizedArabic: "بَاب", englishGloss: "door", prerequisiteIds: ["letter-ba"], root: "ب و ب" }),
+  atom({ id: "word-ghurfa", kind: "WORD", canonicalArabic: "غرفة", vocalizedArabic: "غُرْفَة", englishGloss: "room", prerequisiteIds: ["letter-ghain", "letter-ra", "letter-fa", "letter-taa-marbuta"] }),
+  atom({ id: "word-maktab", kind: "WORD", canonicalArabic: "مكتب", vocalizedArabic: "مَكْتَب", englishGloss: "office; desk", prerequisiteIds: ["letter-mim", "letter-kaf", "letter-ta", "letter-ba"], root: "ك ت ب", patternNote: "mafʿal place/tool" }),
+  atom({ id: "word-maktaba", kind: "WORD", canonicalArabic: "مكتبة", vocalizedArabic: "مَكْتَبَة", englishGloss: "library", prerequisiteIds: ["word-maktab", "letter-taa-marbuta"], root: "ك ت ب", patternNote: "mafʿala" }),
+  atom({ id: "word-madrasa", kind: "WORD", canonicalArabic: "مدرسة", vocalizedArabic: "مَدْرَسَة", englishGloss: "school", prerequisiteIds: ["letter-mim", "letter-dal", "letter-ra", "letter-sin"], root: "د ر س" }),
+  atom({ id: "word-jami3a", kind: "WORD", canonicalArabic: "جامعة", vocalizedArabic: "جَامِعَة", englishGloss: "university", prerequisiteIds: ["letter-jim", "letter-mim", "letter-ain"], root: "ج م ع" }),
+  atom({ id: "word-masjid", kind: "WORD", canonicalArabic: "مسجد", vocalizedArabic: "مَسْجِد", englishGloss: "mosque", prerequisiteIds: ["letter-mim", "letter-sin", "letter-jim", "letter-dal"], root: "س ج د" }),
+  atom({ id: "word-suq", kind: "WORD", canonicalArabic: "سوق", vocalizedArabic: "سُوق", englishGloss: "market", prerequisiteIds: ["letter-sin", "letter-waw", "letter-qaf"] }),
+  atom({ id: "word-madina", kind: "WORD", canonicalArabic: "مدينة", vocalizedArabic: "مَدِينَة", englishGloss: "city", prerequisiteIds: ["letter-mim", "letter-dal", "letter-ya", "letter-nun"], root: "م د ن" }),
+  atom({ id: "word-balad", kind: "WORD", canonicalArabic: "بلد", vocalizedArabic: "بَلَد", englishGloss: "country; town", prerequisiteIds: ["letter-ba", "letter-lam", "letter-dal"] }),
+  atom({ id: "word-shari3", kind: "WORD", canonicalArabic: "شارع", vocalizedArabic: "شَارِع", englishGloss: "street", prerequisiteIds: ["letter-shin", "letter-ra", "letter-ain"], root: "ش ر ع" }),
+  atom({ id: "word-mat3am", kind: "WORD", canonicalArabic: "مطعم", vocalizedArabic: "مَطْعَم", englishGloss: "restaurant", prerequisiteIds: ["letter-mim", "letter-taa", "letter-ain"], root: "ط ع م" }),
+  atom({ id: "word-funduq", kind: "WORD", canonicalArabic: "فندق", vocalizedArabic: "فُنْدُق", englishGloss: "hotel", prerequisiteIds: ["letter-fa", "letter-nun", "letter-dal", "letter-qaf"] }),
+  atom({ id: "word-matar", kind: "WORD", canonicalArabic: "مطار", vocalizedArabic: "مَطَار", englishGloss: "airport", prerequisiteIds: ["letter-mim", "letter-taa", "letter-ra"], root: "ط ي ر" }),
+  atom({ id: "word-mustashfa", kind: "WORD", canonicalArabic: "مستشفى", vocalizedArabic: "مُسْتَشْفَى", englishGloss: "hospital", prerequisiteIds: ["letter-mim", "letter-sin", "letter-shin", "letter-fa"] }),
+
+  // Study & work
+  atom({ id: "word-kitab", kind: "WORD", canonicalArabic: "كتاب", vocalizedArabic: "كِتَاب", englishGloss: "book", prerequisiteIds: ["letter-kaf", "letter-ta", "letter-ba"], root: "ك ت ب", patternNote: "fiʿāl" }),
+  atom({ id: "word-qalam", kind: "WORD", canonicalArabic: "قلم", vocalizedArabic: "قَلَم", englishGloss: "pen", prerequisiteIds: ["letter-qaf", "letter-lam", "letter-mim"] }),
+  atom({ id: "word-daftar", kind: "WORD", canonicalArabic: "دفتر", vocalizedArabic: "دَفْتَر", englishGloss: "notebook", prerequisiteIds: ["letter-dal", "letter-fa", "letter-ta", "letter-ra"] }),
+  atom({ id: "word-dars", kind: "WORD", canonicalArabic: "درس", vocalizedArabic: "دَرْس", englishGloss: "lesson", prerequisiteIds: ["letter-dal", "letter-ra", "letter-sin"], root: "د ر س" }),
+  atom({ id: "word-lugha", kind: "WORD", canonicalArabic: "لغة", vocalizedArabic: "لُغَة", englishGloss: "language", prerequisiteIds: ["letter-lam", "letter-ghain", "letter-taa-marbuta"] }),
+  atom({ id: "word-arabiyya", kind: "WORD", canonicalArabic: "العربية", vocalizedArabic: "العَرَبِيَّة", englishGloss: "Arabic (language)", prerequisiteIds: ["letter-ain", "letter-ra", "letter-ba"] }),
+  atom({ id: "word-injiliziyya", kind: "WORD", canonicalArabic: "الإنجليزية", vocalizedArabic: "الإِنْجِلِيزِيَّة", englishGloss: "English (language)", prerequisiteIds: ["letter-alif", "letter-nun", "letter-jim"] }),
+  atom({ id: "word-suual", kind: "WORD", canonicalArabic: "سؤال", vocalizedArabic: "سُؤَال", englishGloss: "question", prerequisiteIds: ["letter-sin", "letter-hamza", "letter-lam"], root: "س أ ل" }),
+  atom({ id: "word-jawab", kind: "WORD", canonicalArabic: "جواب", vocalizedArabic: "جَوَاب", englishGloss: "answer", prerequisiteIds: ["letter-jim", "letter-waw", "letter-ba"], root: "ج و ب" }),
+  atom({ id: "word-kalima", kind: "WORD", canonicalArabic: "كلمة", vocalizedArabic: "كَلِمَة", englishGloss: "word", prerequisiteIds: ["letter-kaf", "letter-lam", "letter-mim"], root: "ك ل م" }),
+  atom({ id: "word-jumla", kind: "WORD", canonicalArabic: "جملة", vocalizedArabic: "جُمْلَة", englishGloss: "sentence", prerequisiteIds: ["letter-jim", "letter-mim", "letter-lam"] }),
+  atom({ id: "word-amal", kind: "WORD", canonicalArabic: "عمل", vocalizedArabic: "عَمَل", englishGloss: "work; job", prerequisiteIds: ["letter-ain", "letter-mim", "letter-lam"], root: "ع م ل" }),
+  atom({ id: "word-wazifa", kind: "WORD", canonicalArabic: "وظيفة", vocalizedArabic: "وَظِيفَة", englishGloss: "job; homework", prerequisiteIds: ["letter-waw", "letter-zaa", "letter-fa"] }),
+
+  // Verbs (present, 1sg or dictionary-style high utility)
+  atom({ id: "verb-ataallam", kind: "WORD", canonicalArabic: "أتعلم", vocalizedArabic: "أَتَعَلَّمُ", englishGloss: "I learn", prerequisiteIds: ["pronoun-ana", "letter-ain", "letter-lam", "letter-mim"], root: "ع ل م" }),
+  atom({ id: "verb-aktub", kind: "WORD", canonicalArabic: "أكتب", vocalizedArabic: "أَكْتُبُ", englishGloss: "I write", prerequisiteIds: ["pronoun-ana", "word-kitab"], root: "ك ت ب" }),
+  atom({ id: "verb-aqra", kind: "WORD", canonicalArabic: "أقرأ", vocalizedArabic: "أَقْرَأُ", englishGloss: "I read", prerequisiteIds: ["pronoun-ana", "letter-qaf", "letter-ra"], root: "ق ر أ" }),
+  atom({ id: "verb-afham", kind: "WORD", canonicalArabic: "أفهم", vocalizedArabic: "أَفْهَمُ", englishGloss: "I understand", prerequisiteIds: ["pronoun-ana", "letter-fa", "letter-ha", "letter-mim"], root: "ف ه م" }),
+  atom({ id: "verb-atakallam", kind: "WORD", canonicalArabic: "أتكلم", vocalizedArabic: "أَتَكَلَّمُ", englishGloss: "I speak", prerequisiteIds: ["pronoun-ana", "letter-kaf", "letter-lam", "letter-mim"], root: "ك ل م" }),
+  atom({ id: "verb-adhhab", kind: "WORD", canonicalArabic: "أذهب", vocalizedArabic: "أَذْهَبُ", englishGloss: "I go", prerequisiteIds: ["pronoun-ana", "letter-dhal", "letter-ha", "letter-ba"], root: "ذ ه ب" }),
+  atom({ id: "verb-uriid", kind: "WORD", canonicalArabic: "أريد", vocalizedArabic: "أُرِيدُ", englishGloss: "I want", prerequisiteIds: ["pronoun-ana", "letter-ra", "letter-ya", "letter-dal"], root: "ر و د" }),
+  atom({ id: "verb-uhibb", kind: "WORD", canonicalArabic: "أحب", vocalizedArabic: "أُحِبُّ", englishGloss: "I love / like", prerequisiteIds: ["pronoun-ana", "letter-haa", "letter-ba"], root: "ح ب ب" }),
+  atom({ id: "verb-ashrab", kind: "WORD", canonicalArabic: "أشرب", vocalizedArabic: "أَشْرَبُ", englishGloss: "I drink", prerequisiteIds: ["pronoun-ana", "letter-shin", "letter-ra", "letter-ba"], root: "ش ر ب" }),
+  atom({ id: "verb-akul", kind: "WORD", canonicalArabic: "آكل", vocalizedArabic: "آكُلُ", englishGloss: "I eat", prerequisiteIds: ["pronoun-ana", "letter-kaf", "letter-lam"], root: "أ ك ل" }),
+  atom({ id: "verb-askun", kind: "WORD", canonicalArabic: "أسكن", vocalizedArabic: "أَسْكُنُ", englishGloss: "I live (reside)", prerequisiteIds: ["pronoun-ana", "letter-sin", "letter-kaf", "letter-nun"], root: "س ك ن" }),
+  atom({ id: "verb-a3mal", kind: "WORD", canonicalArabic: "أعمل", vocalizedArabic: "أَعْمَلُ", englishGloss: "I work", prerequisiteIds: ["pronoun-ana", "word-amal"], root: "ع م ل" }),
+  atom({ id: "verb-ara", kind: "WORD", canonicalArabic: "أرى", vocalizedArabic: "أَرَى", englishGloss: "I see", prerequisiteIds: ["pronoun-ana", "letter-ra"], root: "ر أ ي" }),
+  atom({ id: "verb-asma3", kind: "WORD", canonicalArabic: "أسمع", vocalizedArabic: "أَسْمَعُ", englishGloss: "I hear", prerequisiteIds: ["pronoun-ana", "letter-sin", "letter-mim", "letter-ain"], root: "س م ع" }),
+
+  // Food & drink
+  atom({ id: "word-maa", kind: "WORD", canonicalArabic: "ماء", vocalizedArabic: "مَاء", englishGloss: "water", prerequisiteIds: ["letter-mim"] }),
+  atom({ id: "word-qahwa", kind: "WORD", canonicalArabic: "قهوة", vocalizedArabic: "قَهْوَة", englishGloss: "coffee", prerequisiteIds: ["letter-qaf", "letter-ha", "letter-waw"] }),
+  atom({ id: "word-shay", kind: "WORD", canonicalArabic: "شاي", vocalizedArabic: "شَاي", englishGloss: "tea", prerequisiteIds: ["letter-shin", "letter-ya"] }),
+  atom({ id: "word-khubz", kind: "WORD", canonicalArabic: "خبز", vocalizedArabic: "خُبْز", englishGloss: "bread", prerequisiteIds: ["letter-kha", "letter-ba", "letter-zay"] }),
+  atom({ id: "word-lahm", kind: "WORD", canonicalArabic: "لحم", vocalizedArabic: "لَحْم", englishGloss: "meat", prerequisiteIds: ["letter-lam", "letter-haa", "letter-mim"] }),
+  atom({ id: "word-samak", kind: "WORD", canonicalArabic: "سمك", vocalizedArabic: "سَمَك", englishGloss: "fish", prerequisiteIds: ["letter-sin", "letter-mim", "letter-kaf"] }),
+  atom({ id: "word-tuffah", kind: "WORD", canonicalArabic: "تفاح", vocalizedArabic: "تُفَّاح", englishGloss: "apple", prerequisiteIds: ["letter-ta", "letter-fa", "letter-haa"] }),
+  atom({ id: "word-ruzz", kind: "WORD", canonicalArabic: "أرز", vocalizedArabic: "أَرُزّ", englishGloss: "rice", prerequisiteIds: ["letter-alif-hamza", "letter-ra", "letter-zay"] }),
+  atom({ id: "word-halib", kind: "WORD", canonicalArabic: "حليب", vocalizedArabic: "حَلِيب", englishGloss: "milk", prerequisiteIds: ["letter-haa", "letter-lam", "letter-ba"] }),
+  atom({ id: "word-sukkar", kind: "WORD", canonicalArabic: "سكر", vocalizedArabic: "سُكَّر", englishGloss: "sugar", prerequisiteIds: ["letter-sin", "letter-kaf", "letter-ra"] }),
+  atom({ id: "word-milh", kind: "WORD", canonicalArabic: "ملح", vocalizedArabic: "مِلْح", englishGloss: "salt", prerequisiteIds: ["letter-mim", "letter-lam", "letter-haa"] }),
+  atom({ id: "word-ta3am", kind: "WORD", canonicalArabic: "طعام", vocalizedArabic: "طَعَام", englishGloss: "food", prerequisiteIds: ["letter-taa", "letter-ain", "letter-mim"], root: "ط ع م" }),
+
+  // Time
+  atom({ id: "word-yawm", kind: "WORD", canonicalArabic: "يوم", vocalizedArabic: "يَوْم", englishGloss: "day", prerequisiteIds: ["letter-ya", "letter-waw", "letter-mim"] }),
+  atom({ id: "word-layl", kind: "WORD", canonicalArabic: "ليل", vocalizedArabic: "لَيْل", englishGloss: "night", prerequisiteIds: ["letter-lam", "letter-ya"] }),
+  atom({ id: "word-sabah", kind: "WORD", canonicalArabic: "صباح", vocalizedArabic: "صَبَاح", englishGloss: "morning", prerequisiteIds: ["letter-sad", "letter-ba", "letter-haa"] }),
+  atom({ id: "word-masa", kind: "WORD", canonicalArabic: "مساء", vocalizedArabic: "مَسَاء", englishGloss: "evening", prerequisiteIds: ["letter-mim", "letter-sin"] }),
+  atom({ id: "word-saa3a", kind: "WORD", canonicalArabic: "ساعة", vocalizedArabic: "سَاعَة", englishGloss: "hour; clock", prerequisiteIds: ["letter-sin", "letter-ain", "letter-taa-marbuta"] }),
+  atom({ id: "word-daqiqa", kind: "WORD", canonicalArabic: "دقيقة", vocalizedArabic: "دَقِيقَة", englishGloss: "minute", prerequisiteIds: ["letter-dal", "letter-qaf"] }),
+  atom({ id: "word-usbu3", kind: "WORD", canonicalArabic: "أسبوع", vocalizedArabic: "أُسْبُوع", englishGloss: "week", prerequisiteIds: ["letter-alif-hamza", "letter-sin", "letter-ba"] }),
+  atom({ id: "word-shahr", kind: "WORD", canonicalArabic: "شهر", vocalizedArabic: "شَهْر", englishGloss: "month", prerequisiteIds: ["letter-shin", "letter-ha", "letter-ra"] }),
+  atom({ id: "word-sana", kind: "WORD", canonicalArabic: "سنة", vocalizedArabic: "سَنَة", englishGloss: "year", prerequisiteIds: ["letter-sin", "letter-nun", "letter-taa-marbuta"] }),
+  atom({ id: "word-al-aan", kind: "WORD", canonicalArabic: "الآن", vocalizedArabic: "الآنَ", englishGloss: "now", prerequisiteIds: ["letter-alif", "letter-lam", "letter-nun"] }),
+  atom({ id: "word-al-yawm", kind: "WORD", canonicalArabic: "اليوم", vocalizedArabic: "اليَوْمَ", englishGloss: "today", prerequisiteIds: ["word-yawm"] }),
+  atom({ id: "word-ghadan", kind: "WORD", canonicalArabic: "غدا", vocalizedArabic: "غَدًا", englishGloss: "tomorrow", prerequisiteIds: ["letter-ghain", "letter-dal"] }),
+  atom({ id: "word-ams", kind: "WORD", canonicalArabic: "أمس", vocalizedArabic: "أَمْسِ", englishGloss: "yesterday", prerequisiteIds: ["letter-alif-hamza", "letter-mim", "letter-sin"] }),
+
+  // Numbers (words)
+  atom({ id: "word-wahid", kind: "WORD", canonicalArabic: "واحد", vocalizedArabic: "وَاحِد", englishGloss: "one", prerequisiteIds: ["letter-waw", "letter-haa", "letter-dal"] }),
+  atom({ id: "word-ithnan", kind: "WORD", canonicalArabic: "اثنان", vocalizedArabic: "اِثْنَان", englishGloss: "two", prerequisiteIds: ["letter-tha", "letter-nun"] }),
+  atom({ id: "word-thalatha", kind: "WORD", canonicalArabic: "ثلاثة", vocalizedArabic: "ثَلَاثَة", englishGloss: "three", prerequisiteIds: ["letter-tha", "letter-lam"] }),
+  atom({ id: "word-arba3a", kind: "WORD", canonicalArabic: "أربعة", vocalizedArabic: "أَرْبَعَة", englishGloss: "four", prerequisiteIds: ["letter-alif-hamza", "letter-ra", "letter-ba", "letter-ain"] }),
+  atom({ id: "word-khamsa", kind: "WORD", canonicalArabic: "خمسة", vocalizedArabic: "خَمْسَة", englishGloss: "five", prerequisiteIds: ["letter-kha", "letter-mim", "letter-sin"] }),
+  atom({ id: "word-ashara", kind: "WORD", canonicalArabic: "عشرة", vocalizedArabic: "عَشَرَة", englishGloss: "ten", prerequisiteIds: ["letter-ain", "letter-shin", "letter-ra"] }),
+
+  // Adjectives & qualities
+  atom({ id: "word-kabir", kind: "WORD", canonicalArabic: "كبير", vocalizedArabic: "كَبِير", englishGloss: "big; old (age)", prerequisiteIds: ["letter-kaf", "letter-ba", "letter-ra"], root: "ك ب ر" }),
+  atom({ id: "word-saghir", kind: "WORD", canonicalArabic: "صغير", vocalizedArabic: "صَغِير", englishGloss: "small; young", prerequisiteIds: ["letter-sad", "letter-ghain", "letter-ra"], root: "ص غ ر" }),
+  atom({ id: "word-jadid", kind: "WORD", canonicalArabic: "جديد", vocalizedArabic: "جَدِيد", englishGloss: "new", prerequisiteIds: ["letter-jim", "letter-dal"], root: "ج د د" }),
+  atom({ id: "word-qadim", kind: "WORD", canonicalArabic: "قديم", vocalizedArabic: "قَدِيم", englishGloss: "old (thing)", prerequisiteIds: ["letter-qaf", "letter-dal", "letter-mim"], root: "ق د م" }),
+  atom({ id: "word-jayyid", kind: "WORD", canonicalArabic: "جيد", vocalizedArabic: "جَيِّد", englishGloss: "good", prerequisiteIds: ["letter-jim", "letter-ya", "letter-dal"] }),
+  atom({ id: "word-jamiil", kind: "WORD", canonicalArabic: "جميل", vocalizedArabic: "جَمِيل", englishGloss: "beautiful", prerequisiteIds: ["letter-jim", "letter-mim", "letter-lam"], root: "ج م ل" }),
+  atom({ id: "word-sahl", kind: "WORD", canonicalArabic: "سهل", vocalizedArabic: "سَهْل", englishGloss: "easy", prerequisiteIds: ["letter-sin", "letter-ha", "letter-lam"] }),
+  atom({ id: "word-sa3b", kind: "WORD", canonicalArabic: "صعب", vocalizedArabic: "صَعْب", englishGloss: "difficult", prerequisiteIds: ["letter-sad", "letter-ain", "letter-ba"] }),
+  atom({ id: "word-muhimm", kind: "WORD", canonicalArabic: "مهم", vocalizedArabic: "مُهِمّ", englishGloss: "important", prerequisiteIds: ["letter-mim", "letter-ha"], root: "ه م م" }),
+  atom({ id: "word-mumkin", kind: "WORD", canonicalArabic: "ممكن", vocalizedArabic: "مُمْكِن", englishGloss: "possible", prerequisiteIds: ["letter-mim", "letter-kaf", "letter-nun"], root: "م ك ن" }),
+
+  // Nature & world
+  atom({ id: "word-shams", kind: "WORD", canonicalArabic: "شمس", vocalizedArabic: "شَمْس", englishGloss: "sun", prerequisiteIds: ["letter-shin", "letter-mim", "letter-sin"] }),
+  atom({ id: "word-qamar", kind: "WORD", canonicalArabic: "قمر", vocalizedArabic: "قَمَر", englishGloss: "moon", prerequisiteIds: ["letter-qaf", "letter-mim", "letter-ra"] }),
+  atom({ id: "word-sama", kind: "WORD", canonicalArabic: "سماء", vocalizedArabic: "سَمَاء", englishGloss: "sky", prerequisiteIds: ["letter-sin", "letter-mim"] }),
+  atom({ id: "word-ard", kind: "WORD", canonicalArabic: "أرض", vocalizedArabic: "أَرْض", englishGloss: "earth; land", prerequisiteIds: ["letter-alif-hamza", "letter-ra", "letter-dad"] }),
+  atom({ id: "word-bahr", kind: "WORD", canonicalArabic: "بحر", vocalizedArabic: "بَحْر", englishGloss: "sea", prerequisiteIds: ["letter-ba", "letter-haa", "letter-ra"] }),
+  atom({ id: "word-jabal", kind: "WORD", canonicalArabic: "جبل", vocalizedArabic: "جَبَل", englishGloss: "mountain", prerequisiteIds: ["letter-jim", "letter-ba", "letter-lam"] }),
+  atom({ id: "word-nahar", kind: "WORD", canonicalArabic: "نهر", vocalizedArabic: "نَهْر", englishGloss: "river", prerequisiteIds: ["letter-nun", "letter-ha", "letter-ra"] }),
+  atom({ id: "word-shajara", kind: "WORD", canonicalArabic: "شجرة", vocalizedArabic: "شَجَرَة", englishGloss: "tree", prerequisiteIds: ["letter-shin", "letter-jim", "letter-ra"] }),
+
+  // Body & self
+  atom({ id: "word-yad", kind: "WORD", canonicalArabic: "يد", vocalizedArabic: "يَد", englishGloss: "hand", prerequisiteIds: ["letter-ya", "letter-dal"] }),
+  atom({ id: "word-raas", kind: "WORD", canonicalArabic: "رأس", vocalizedArabic: "رَأْس", englishGloss: "head", prerequisiteIds: ["letter-ra", "letter-hamza", "letter-sin"] }),
+  atom({ id: "word-3ayn", kind: "WORD", canonicalArabic: "عين", vocalizedArabic: "عَيْن", englishGloss: "eye", prerequisiteIds: ["letter-ain", "letter-ya", "letter-nun"] }),
+  atom({ id: "word-qalb", kind: "WORD", canonicalArabic: "قلب", vocalizedArabic: "قَلْب", englishGloss: "heart", prerequisiteIds: ["letter-qaf", "letter-lam", "letter-ba"], root: "ق ل ب" }),
+
+  // Travel & money
+  atom({ id: "word-sayyara", kind: "WORD", canonicalArabic: "سيارة", vocalizedArabic: "سَيَّارَة", englishGloss: "car", prerequisiteIds: ["letter-sin", "letter-ya", "letter-ra"] }),
+  atom({ id: "word-qitar", kind: "WORD", canonicalArabic: "قطار", vocalizedArabic: "قِطَار", englishGloss: "train", prerequisiteIds: ["letter-qaf", "letter-taa", "letter-ra"] }),
+  atom({ id: "word-taira", kind: "WORD", canonicalArabic: "طائرة", vocalizedArabic: "طَائِرَة", englishGloss: "airplane", prerequisiteIds: ["letter-taa", "letter-alif", "letter-ra"], root: "ط ي ر" }),
+  atom({ id: "word-safar", kind: "WORD", canonicalArabic: "سفر", vocalizedArabic: "سَفَر", englishGloss: "travel", prerequisiteIds: ["letter-sin", "letter-fa", "letter-ra"], root: "س ف ر" }),
+  atom({ id: "word-nuqud", kind: "WORD", canonicalArabic: "نقود", vocalizedArabic: "نُقُود", englishGloss: "money", prerequisiteIds: ["letter-nun", "letter-qaf", "letter-dal"] }),
+  atom({ id: "word-thaman", kind: "WORD", canonicalArabic: "ثمن", vocalizedArabic: "ثَمَن", englishGloss: "price", prerequisiteIds: ["letter-tha", "letter-mim", "letter-nun"] }),
+];

@@ -13,7 +13,7 @@ export default function HomePage() {
 
       <ul className="home-points" aria-label="What this demo includes">
         <li>30–60 minute Study Room with six stable stages</li>
-        <li>MSA-only beginner curriculum spine (~40 high-utility forms)</li>
+        <li>MSA-only beginner spine: full alphabet + ~200 high-utility forms & phrases</li>
         <li>Separate reading, listening, writing, and speaking signals</li>
         <li>Isolated browser session — your progress is not shared with other visitors</li>
       </ul>

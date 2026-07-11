@@ -1,0 +1,37 @@
+import type { KnowledgeAtom } from "@/domain/learning/types";
+import { atom } from "./atom";
+
+/** Full MSA abjad (28) plus common orthographic companions for reading. */
+export const LETTER_ATOMS: KnowledgeAtom[] = [
+  atom({ id: "letter-alif", kind: "LETTER", canonicalArabic: "ا", vocalizedArabic: "ا", englishGloss: "letter alif", prerequisiteIds: [] }),
+  atom({ id: "letter-ba", kind: "LETTER", canonicalArabic: "ب", vocalizedArabic: "بَ", englishGloss: "letter baa", prerequisiteIds: [] }),
+  atom({ id: "letter-ta", kind: "LETTER", canonicalArabic: "ت", vocalizedArabic: "تَ", englishGloss: "letter taa", prerequisiteIds: [] }),
+  atom({ id: "letter-tha", kind: "LETTER", canonicalArabic: "ث", vocalizedArabic: "ثَ", englishGloss: "letter thaa", prerequisiteIds: [] }),
+  atom({ id: "letter-jim", kind: "LETTER", canonicalArabic: "ج", vocalizedArabic: "جَ", englishGloss: "letter jeem", prerequisiteIds: [] }),
+  atom({ id: "letter-haa", kind: "LETTER", canonicalArabic: "ح", vocalizedArabic: "حَ", englishGloss: "letter ḥaa", prerequisiteIds: [] }),
+  atom({ id: "letter-kha", kind: "LETTER", canonicalArabic: "خ", vocalizedArabic: "خَ", englishGloss: "letter khaa", prerequisiteIds: [] }),
+  atom({ id: "letter-dal", kind: "LETTER", canonicalArabic: "د", vocalizedArabic: "دَ", englishGloss: "letter dal", prerequisiteIds: [] }),
+  atom({ id: "letter-dhal", kind: "LETTER", canonicalArabic: "ذ", vocalizedArabic: "ذَ", englishGloss: "letter dhaal", prerequisiteIds: [] }),
+  atom({ id: "letter-ra", kind: "LETTER", canonicalArabic: "ر", vocalizedArabic: "رَ", englishGloss: "letter raa", prerequisiteIds: [] }),
+  atom({ id: "letter-zay", kind: "LETTER", canonicalArabic: "ز", vocalizedArabic: "زَ", englishGloss: "letter zay", prerequisiteIds: [] }),
+  atom({ id: "letter-sin", kind: "LETTER", canonicalArabic: "س", vocalizedArabic: "سَ", englishGloss: "letter seen", prerequisiteIds: [] }),
+  atom({ id: "letter-shin", kind: "LETTER", canonicalArabic: "ش", vocalizedArabic: "شَ", englishGloss: "letter sheen", prerequisiteIds: [] }),
+  atom({ id: "letter-sad", kind: "LETTER", canonicalArabic: "ص", vocalizedArabic: "صَ", englishGloss: "letter ṣaad", prerequisiteIds: [] }),
+  atom({ id: "letter-dad", kind: "LETTER", canonicalArabic: "ض", vocalizedArabic: "ضَ", englishGloss: "letter ḍaad", prerequisiteIds: [] }),
+  atom({ id: "letter-taa", kind: "LETTER", canonicalArabic: "ط", vocalizedArabic: "طَ", englishGloss: "letter ṭaa", prerequisiteIds: [] }),
+  atom({ id: "letter-zaa", kind: "LETTER", canonicalArabic: "ظ", vocalizedArabic: "ظَ", englishGloss: "letter ẓaa", prerequisiteIds: [] }),
+  atom({ id: "letter-ain", kind: "LETTER", canonicalArabic: "ع", vocalizedArabic: "عَ", englishGloss: "letter ʿayn", prerequisiteIds: [] }),
+  atom({ id: "letter-ghain", kind: "LETTER", canonicalArabic: "غ", vocalizedArabic: "غَ", englishGloss: "letter ghayn", prerequisiteIds: [] }),
+  atom({ id: "letter-fa", kind: "LETTER", canonicalArabic: "ف", vocalizedArabic: "فَ", englishGloss: "letter faa", prerequisiteIds: [] }),
+  atom({ id: "letter-qaf", kind: "LETTER", canonicalArabic: "ق", vocalizedArabic: "قَ", englishGloss: "letter qaf", prerequisiteIds: [] }),
+  atom({ id: "letter-kaf", kind: "LETTER", canonicalArabic: "ك", vocalizedArabic: "كَ", englishGloss: "letter kaf", prerequisiteIds: [] }),
+  atom({ id: "letter-lam", kind: "LETTER", canonicalArabic: "ل", vocalizedArabic: "لَ", englishGloss: "letter lam", prerequisiteIds: [] }),
+  atom({ id: "letter-mim", kind: "LETTER", canonicalArabic: "م", vocalizedArabic: "مَ", englishGloss: "letter meem", prerequisiteIds: [] }),
+  atom({ id: "letter-nun", kind: "LETTER", canonicalArabic: "ن", vocalizedArabic: "نَ", englishGloss: "letter nun", prerequisiteIds: [] }),
+  atom({ id: "letter-ha", kind: "LETTER", canonicalArabic: "ه", vocalizedArabic: "هَ", englishGloss: "letter haa", prerequisiteIds: [] }),
+  atom({ id: "letter-waw", kind: "LETTER", canonicalArabic: "و", vocalizedArabic: "وَ", englishGloss: "letter waw", prerequisiteIds: [] }),
+  atom({ id: "letter-ya", kind: "LETTER", canonicalArabic: "ي", vocalizedArabic: "يَ", englishGloss: "letter yaa", prerequisiteIds: [] }),
+  atom({ id: "letter-hamza", kind: "LETTER", canonicalArabic: "ء", vocalizedArabic: "ء", englishGloss: "hamza (glottal stop)", prerequisiteIds: ["letter-alif"] }),
+  atom({ id: "letter-alif-hamza", kind: "LETTER", canonicalArabic: "أ", vocalizedArabic: "أَ", englishGloss: "alif with hamza above", prerequisiteIds: ["letter-alif", "letter-hamza"] }),
+  atom({ id: "letter-taa-marbuta", kind: "LETTER", canonicalArabic: "ة", vocalizedArabic: "ة", englishGloss: "taa marbuta (feminine ending)", prerequisiteIds: ["letter-ha", "letter-ta"] }),
+];
