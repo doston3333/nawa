@@ -14,11 +14,14 @@ export function DiacriticText({ vocalized, ambiguous, plain, level }: {
   const text = level === "FULL" || (level === "ON_TAP" && revealed)
     ? vocalized
     : level === "AMBIGUOUS" ? ambiguous : plain;
+
   return (
-    <div>
-      <p lang="ar" dir="rtl">{text}</p>
+    <div className="diacritic-text">
+      <p className="arabic-prompt" lang="ar" dir="rtl">{text}</p>
       {level === "ON_TAP" && !revealed ? (
-        <button type="button" onClick={() => setRevealed(true)}>Show diacritics</button>
+        <button className="diacritic-reveal" type="button" onClick={() => setRevealed(true)}>
+          Show diacritics
+        </button>
       ) : null}
     </div>
   );
