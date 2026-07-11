@@ -1,7 +1,7 @@
 # Nawa V1 Program Roadmap
 
-**Approved product specification:** `docs/superpowers/specs/2026-07-11-nawa-learning-system-design.md`  
-**Delivery surface:** Responsive web application and installable PWA  
+**Approved product specification:** `docs/superpowers/specs/2026-07-11-nawa-learning-system-design.md`
+**Delivery surface:** Responsive web application and installable PWA
 **Target learner:** Serious adult beginner studying MSA for 30–60 minutes per day
 
 ## Why V1 is divided into separate plans

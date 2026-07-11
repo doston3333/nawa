@@ -221,7 +221,7 @@ coverage/
 src/generated/prisma/
 ```
 
-Run: `pnpm install`  
+Run: `pnpm install`
 Expected: exit 0 and a new `pnpm-lock.yaml`.
 
 - [ ] **Step 2: Write the failing Today screen test**
@@ -264,7 +264,7 @@ import "@testing-library/jest-dom/vitest";
 
 - [ ] **Step 3: Run the test and verify the page is missing**
 
-Run: `pnpm test src/app/page.test.tsx`  
+Run: `pnpm test src/app/page.test.tsx`
 Expected: FAIL because `src/app/page.tsx` does not exist.
 
 - [ ] **Step 4: Implement the minimal shell and Today page**
@@ -361,7 +361,7 @@ Generate both icons as simple project-owned PNGs containing the Nawa `ن` mark; 
 
 - [ ] **Step 5: Verify the scaffold**
 
-Run: `pnpm test src/app/page.test.tsx && pnpm typecheck && pnpm lint && pnpm build`  
+Run: `pnpm test src/app/page.test.tsx && pnpm typecheck && pnpm lint && pnpm build`
 Expected: all commands exit 0; the test reports 1 passed; Next.js emits the `/` route and manifest.
 
 - [ ] **Step 6: Commit**
@@ -413,7 +413,7 @@ describe("BEGINNER_ATOMS", () => {
 
 - [ ] **Step 2: Run the test and verify the domain is absent**
 
-Run: `pnpm test src/domain/curriculum/seed.test.ts`  
+Run: `pnpm test src/domain/curriculum/seed.test.ts`
 Expected: FAIL because `./seed` does not exist.
 
 - [ ] **Step 3: Create the shared contracts**
@@ -514,7 +514,7 @@ export const BEGINNER_ATOMS: KnowledgeAtom[] = [
 
 - [ ] **Step 5: Verify contracts and curriculum**
 
-Run: `pnpm test src/domain/curriculum/seed.test.ts && pnpm typecheck && pnpm lint`  
+Run: `pnpm test src/domain/curriculum/seed.test.ts && pnpm typecheck && pnpm lint`
 Expected: 2 tests pass and all commands exit 0.
 
 - [ ] **Step 6: Commit**
@@ -576,7 +576,7 @@ describe("applyEvidence", () => {
 
 - [ ] **Step 2: Run the tests and verify the reducer is missing**
 
-Run: `pnpm test src/domain/mastery/apply-evidence.test.ts`  
+Run: `pnpm test src/domain/mastery/apply-evidence.test.ts`
 Expected: FAIL because `./apply-evidence` does not exist.
 
 - [ ] **Step 3: Implement deterministic transitions**
@@ -635,7 +635,7 @@ export function applyEvidence(snapshot: MasterySnapshot, event: EvidenceEvent): 
 
 - [ ] **Step 4: Verify mastery behavior**
 
-Run: `pnpm test src/domain/mastery/apply-evidence.test.ts && pnpm test && pnpm typecheck && pnpm lint`  
+Run: `pnpm test src/domain/mastery/apply-evidence.test.ts && pnpm test && pnpm typecheck && pnpm lint`
 Expected: 4 focused tests pass; the full suite and static checks exit 0.
 
 - [ ] **Step 5: Commit**
@@ -685,7 +685,7 @@ it("ranks overdue weak abilities before retained future abilities", () => {
 
 - [ ] **Step 2: Run the test and verify the ranker is absent**
 
-Run: `pnpm test src/domain/scheduling/retrieval.test.ts`  
+Run: `pnpm test src/domain/scheduling/retrieval.test.ts`
 Expected: FAIL because `./retrieval` does not exist.
 
 - [ ] **Step 3: Implement explicit scoring**
@@ -723,7 +723,7 @@ export function rankRetrievalCandidates(
 
 - [ ] **Step 4: Verify retrieval ordering**
 
-Run: `pnpm test src/domain/scheduling/retrieval.test.ts && pnpm test && pnpm typecheck && pnpm lint`  
+Run: `pnpm test src/domain/scheduling/retrieval.test.ts && pnpm test && pnpm typecheck && pnpm lint`
 Expected: focused and full suites pass; static checks exit 0.
 
 - [ ] **Step 5: Commit**
@@ -770,7 +770,7 @@ describe.each([30, 45, 60] as const)("%i-minute plan", (durationMinutes) => {
 
 - [ ] **Step 2: Run the test and verify the planner is absent**
 
-Run: `pnpm test src/domain/sessions/build-session-plan.test.ts`  
+Run: `pnpm test src/domain/sessions/build-session-plan.test.ts`
 Expected: FAIL because `./build-session-plan` does not exist.
 
 - [ ] **Step 3: Implement the stable session shape**
@@ -813,7 +813,7 @@ export function buildSessionPlan(input: BuildSessionPlanInput): SessionPlan {
 
 - [ ] **Step 4: Verify all session lengths**
 
-Run: `pnpm test src/domain/sessions/build-session-plan.test.ts && pnpm test && pnpm typecheck && pnpm lint`  
+Run: `pnpm test src/domain/sessions/build-session-plan.test.ts && pnpm test && pnpm typecheck && pnpm lint`
 Expected: 3 focused cases pass; full suite and static checks exit 0.
 
 - [ ] **Step 5: Commit**
@@ -1205,7 +1205,7 @@ main().then(() => db.$disconnect()).catch(async (error) => {
 
 - [ ] **Step 8: Verify persistence**
 
-Run: `pnpm db:seed && pnpm test tests/integration/study-repository.test.ts && pnpm test && pnpm typecheck && pnpm lint`  
+Run: `pnpm db:seed && pnpm test tests/integration/study-repository.test.ts && pnpm test && pnpm typecheck && pnpm lint`
 Expected: the focused integration test passes, the full suite passes, and static checks exit 0.
 
 - [ ] **Step 9: Commit**
@@ -1306,7 +1306,7 @@ it("records one ability-specific event before advancing", async () => {
 
 - [ ] **Step 2: Run route tests and verify both handlers are absent**
 
-Run: `pnpm test src/app/api/study`  
+Run: `pnpm test src/app/api/study`
 Expected: FAIL because both route modules do not exist.
 
 - [ ] **Step 3: Add the development-only learner boundary**
@@ -1390,7 +1390,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
 
 - [ ] **Step 6: Verify route contracts**
 
-Run: `pnpm test src/app/api/study && pnpm test && pnpm typecheck && pnpm lint`  
+Run: `pnpm test src/app/api/study && pnpm test && pnpm typecheck && pnpm lint`
 Expected: route tests and the full suite pass; static checks exit 0.
 
 - [ ] **Step 7: Commit**
@@ -1430,7 +1430,7 @@ expect(screen.queryByText("Leaderboard")).not.toBeInTheDocument();
 
 - [ ] **Step 2: Run the test and verify the Study Room is absent**
 
-Run: `pnpm test src/features/study-room/study-room.test.tsx`  
+Run: `pnpm test src/features/study-room/study-room.test.tsx`
 Expected: FAIL because `study-room.tsx` does not exist.
 
 - [ ] **Step 3: Implement the session hook**
@@ -1583,7 +1583,7 @@ No content may overflow at 375px.
 
 - [ ] **Step 5: Verify the focused shell**
 
-Run: `pnpm test src/features/study-room/study-room.test.tsx && pnpm test && pnpm typecheck && pnpm lint && pnpm build`  
+Run: `pnpm test src/features/study-room/study-room.test.tsx && pnpm test && pnpm typecheck && pnpm lint && pnpm build`
 Expected: the focused test passes; all verification commands exit 0.
 
 - [ ] **Step 6: Commit**
@@ -1659,7 +1659,7 @@ it("lets keyboard and pointer users reveal on-tap diacritics", () => {
 
 - [ ] **Step 2: Run tests and verify both components are absent**
 
-Run: `pnpm test src/features/study-room/coach-panel.test.tsx src/features/study-room/diacritic-text.test.tsx`  
+Run: `pnpm test src/features/study-room/coach-panel.test.tsx src/features/study-room/diacritic-text.test.tsx`
 Expected: FAIL because both modules do not exist.
 
 - [ ] **Step 3: Implement the help-state machine**
@@ -1743,7 +1743,7 @@ Keep `helpLevel` and `confidence` in `TaskCard` state, set `attempted` on the fi
 
 - [ ] **Step 6: Verify help and Arabic support**
 
-Run: `pnpm test src/features/study-room && pnpm test && pnpm typecheck && pnpm lint && pnpm build`  
+Run: `pnpm test src/features/study-room && pnpm test && pnpm typecheck && pnpm lint && pnpm build`
 Expected: all focused and full checks exit 0.
 
 - [ ] **Step 7: Commit**
@@ -1789,7 +1789,7 @@ it("describes abilities separately without a fluency percentage", () => {
 
 - [ ] **Step 2: Run the test and verify the summary is absent**
 
-Run: `pnpm test src/features/study-room/progress-summary.test.tsx`  
+Run: `pnpm test src/features/study-room/progress-summary.test.tsx`
 Expected: FAIL because `progress-summary.tsx` does not exist.
 
 - [ ] **Step 3: Implement explicit progress language**
@@ -1976,7 +1976,7 @@ Expected: unit/integration tests report zero failures, typecheck and lint exit 0
 
 - [ ] **Step 8: Review the final diff against the specification**
 
-Run: `git diff --check && git status --short`  
+Run: `git diff --check && git status --short`
 Expected: no whitespace errors and only files listed in Tasks 1–10 are modified or untracked.
 
 - [ ] **Step 9: Commit**
