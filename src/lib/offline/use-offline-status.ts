@@ -21,6 +21,8 @@ export function useOfflineStatus(profileId?: string): OfflineStatus {
 
   useEffect(() => {
     let active = true;
+    let onlineGeneration = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const refresh = async () => {
       if (!profileId) return;
       try {
@@ -35,9 +37,10 @@ export function useOfflineStatus(profileId?: string): OfflineStatus {
     const onOfflineChange = () => {
       void refresh();
     };
-    const onOnline = () => {
+    const onOnline = (allowRetry = true) => {
       setStatus((current) => ({ ...current, online: true }));
       if (!profileId) return;
+      const generation = ++onlineGeneration;
       void synchronizeProfile(profileId).then(async (sync) => {
         if (!active) return;
         try {
@@ -47,22 +50,34 @@ export function useOfflineStatus(profileId?: string): OfflineStatus {
         } catch {
           setStatus((current) => ({ ...current, syncError: sync.transient ? null : sync.error ?? null }));
         }
+        // An online event can arrive while an initial sync is still in flight.
+        // The second event coalesces onto that promise; if it was transient,
+        // schedule one fresh attempt after the in-flight lock is released.
+        if (allowRetry && sync.transient && active && generation === onlineGeneration && navigator.onLine) {
+          if (retryTimer) clearTimeout(retryTimer);
+          retryTimer = setTimeout(() => {
+            retryTimer = undefined;
+            if (active && navigator.onLine && generation === onlineGeneration) onOnline(false);
+          }, 0);
+        }
       }).catch((error: unknown) => {
         if (active) setStatus((current) => ({ ...current, syncError: error instanceof Error ? error.message : "Unable to synchronize" }));
       });
     };
+    const handleOnline = () => onOnline();
     void refresh().then(() => {
       if (profileId && navigator.onLine) {
         onOnline();
       }
     });
     window.addEventListener("offline", onOffline);
-    window.addEventListener("online", onOnline);
+    window.addEventListener("online", handleOnline);
     window.addEventListener("nawa:offline-change", onOfflineChange);
     return () => {
       active = false;
+      if (retryTimer) clearTimeout(retryTimer);
       window.removeEventListener("offline", onOffline);
-      window.removeEventListener("online", onOnline);
+      window.removeEventListener("online", handleOnline);
       window.removeEventListener("nawa:offline-change", onOfflineChange);
     };
   }, [profileId]);

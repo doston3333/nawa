@@ -48,6 +48,17 @@ it("leaves the payload queued after a network failure", async () => {
   await expect(flushOutbox(profileId)).resolves.toMatchObject({ error: "offline" });
 });
 
+it("keeps the payload queued when the service worker reports offline as 503", async () => {
+  const deviceId = await getDeviceId(profileId);
+  await enqueueMutation(mutation(deviceId));
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.endsWith("/api/sync/devices")) return new Response("Offline", { status: 503 });
+    return new Response("Offline", { status: 503 });
+  });
+  await expect(flushOutbox(profileId)).resolves.toMatchObject({ transient: true, rejected: 0 });
+});
+
 it("applies pull changes before storing the returned cursor", async () => {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
     changes: [{ id: "1", entityType: "LESSON_PROGRESS", entityId: "p:script-1", operation: "UPSERT", revision: 1, payload: { id: "p:script-1", profileId, lessonId: "script-1", status: "COMPLETE" } }],

@@ -95,6 +95,21 @@ test.describe("production service worker shell", () => {
     const page = await context.newPage();
     await selectProfile(page, "Amina");
     await page.goto("/learn");
+    // Wait for the profile-scoped projection, not merely the production shell,
+    // so the offline reload exercises IndexedDB rather than a timing race.
+    await expect(page.getByRole("heading", { name: "Your lessons" })).toBeVisible();
+    await expect.poll(async () => page.evaluate(async (profileId) => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("nawa-offline-v1");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      return await new Promise<boolean>((resolve) => {
+        const request = database.transaction("progress", "readonly").objectStore("progress").get(`${profileId}:path`);
+        request.onsuccess = () => resolve(Boolean(request.result));
+        request.onerror = () => resolve(false);
+      });
+    }, E2E_PROFILES.amina)).toBe(true);
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
     await page.context().setOffline(true);

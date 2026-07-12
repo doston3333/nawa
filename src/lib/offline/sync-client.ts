@@ -10,7 +10,16 @@ const devicePromises = new Map<string, Promise<string>>();
 const profileSyncPromises = new Map<string, { kind: "flush" | "synchronize"; promise: Promise<unknown> }>();
 
 function isTransientNetworkFailure(error: unknown): boolean {
-  return error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);
+  if (error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false)) return true;
+  if (typeof error === "object" && error !== null && "status" in error) {
+    const status = (error as { status?: unknown }).status;
+    return typeof status === "number" && status >= 500;
+  }
+  return false;
+}
+
+function responseError(response: Response, fallback: string): Error & { status: number } {
+  return Object.assign(new Error(fallback), { status: response.status });
 }
 
 function makeDeviceId(): string {
@@ -47,7 +56,7 @@ export async function registerDevice(profileId: string, deviceId?: string): Prom
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { error?: string } | null;
-    throw new Error(body?.error || `Device registration failed (${response.status})`);
+    throw responseError(response, body?.error || `Device registration failed (${response.status})`);
   }
 }
 
@@ -64,7 +73,7 @@ async function flushOutboxInternal(profileId: string): Promise<FlushResult> {
     });
     if (!response.ok) {
       const body = await response.json().catch(() => null) as { error?: string } | null;
-      throw new Error(body?.error || `Sync push failed (${response.status})`);
+      throw responseError(response, body?.error || `Sync push failed (${response.status})`);
     }
     const result = await response.json() as { acknowledgements?: Array<{ mutationId: string; status: string; conflict?: unknown; result?: unknown }>; cursor?: string };
     const acknowledgements = result.acknowledgements ?? [];
@@ -106,7 +115,7 @@ export async function pullProfileChanges(profileId: string): Promise<PullResult>
   const response = await fetch(`/api/sync/pull?cursor=${encodeURIComponent(cursor)}`, { method: "GET" });
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { error?: string } | null;
-    throw new Error(body?.error || `Sync pull failed (${response.status})`);
+    throw responseError(response, body?.error || `Sync pull failed (${response.status})`);
   }
   const result = await response.json() as SyncPullResult;
   const changes = [...(result.changes ?? [])].sort(compareNumericIds);

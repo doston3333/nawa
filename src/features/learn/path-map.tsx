@@ -36,8 +36,22 @@ export function PathMap() {
   useEffect(() => {
     const controller = new AbortController();
     const profileId = readActiveProfileId();
-    fetch("/api/learn/path", { signal: controller.signal })
-      .then(async (response) => {
+    void (async () => {
+      // Hydrate the profile-owned projection before asking the network. This
+      // makes a cached Learn shell useful immediately after a reload while
+      // offline, and avoids depending on Cache Storage for private progress.
+      let cached: LearnPathView | undefined;
+      if (profileId) {
+        cached = await readCachedLearnPath(profileId).catch(() => undefined);
+        if (cached && !controller.signal.aborted) {
+          setPath(cached);
+          setError(null);
+          setLoading(false);
+        }
+      }
+
+      try {
+        const response = await fetch("/api/learn/path", { signal: controller.signal });
         const body = await response.json().catch(() => null) as { error?: string } | LearnPathView | null;
         if (!response.ok) {
           const message = body && "error" in body && body.error ? body.error : "Unable to load path";
@@ -46,30 +60,27 @@ export function PathMap() {
         }
         const nextPath = body as LearnPathView;
         if (profileId) void cacheLearnPath(profileId, nextPath).catch(() => undefined);
-        setPath(nextPath);
-      })
-      .catch((reason: unknown) => {
         if (!controller.signal.aborted) {
-          if (profileId && pathUnavailable(reason)) {
-            return readCachedLearnPath(profileId).then((cached) => {
-              if (controller.signal.aborted) return;
-              if (cached) {
-                setPath(cached);
-                setError(null);
-              } else {
-                setError("Internet required to load your learning path");
-              }
-            }).catch(() => {
-              if (!controller.signal.aborted) setError("Internet required to load your learning path");
-            });
-          } else {
-            setError(reason instanceof Error ? reason.message : "Unable to load path");
-          }
+          setPath(nextPath);
+          setError(null);
         }
-      })
-      .finally(() => {
+      } catch (reason: unknown) {
+        if (controller.signal.aborted) return;
+        if (profileId && pathUnavailable(reason)) {
+          if (!cached) cached = await readCachedLearnPath(profileId).catch(() => undefined);
+          if (cached) {
+            setPath(cached);
+            setError(null);
+          } else {
+            setError("Internet required to load your learning path");
+          }
+        } else {
+          setError(reason instanceof Error ? reason.message : "Unable to load path");
+        }
+      } finally {
         if (!controller.signal.aborted) setLoading(false);
-      });
+      }
+    })();
     return () => controller.abort();
   }, []);
 
