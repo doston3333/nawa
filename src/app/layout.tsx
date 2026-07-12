@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Noto_Naskh_Arabic, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
+import ServiceWorkerRegistration from "./sw-register";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -52,7 +53,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${arabic.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ServiceWorkerRegistration />
+        {children}
+      </body>
     </html>
   );
 }

@@ -5,8 +5,11 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Nawa Arabic Study Room",
     short_name: "Nawa",
     description: "Serious Modern Standard Arabic study on desktop and mobile.",
+    id: "/",
     start_url: "/",
+    scope: "/",
     display: "standalone",
+    prefer_related_applications: false,
     background_color: "#fbf8f0",
     theme_color: "#15372a",
     icons: [
