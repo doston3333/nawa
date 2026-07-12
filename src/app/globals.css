@@ -447,6 +447,76 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   margin: 0;
 }
 
+.path-scale {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.path-lesson--checkpoint .path-lesson-card {
+  border-style: dashed;
+  border-color: color-mix(in oklab, var(--saffron) 55%, var(--border));
+}
+
+.path-lesson-badge {
+  display: inline-block;
+  margin-inline-start: 0.45rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--saffron-soft);
+  color: color-mix(in oklab, var(--saffron) 70%, var(--ink));
+  vertical-align: middle;
+}
+
+.lesson-tips {
+  margin: 0 0 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--sage) 28%, var(--surface));
+  overflow: hidden;
+}
+
+.lesson-tips-toggle {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+.lesson-tips-kicker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.lesson-tips-list {
+  margin: 0;
+  padding: 0 1rem 1rem 1.75rem;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
+.lesson-tips-list li + li {
+  margin-top: 0.45rem;
+}
+
 .primary-action {
   display: inline-flex;
   min-height: 44px;

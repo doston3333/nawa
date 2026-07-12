@@ -25,10 +25,27 @@ describe("lesson unlock chain", () => {
     expect(path.nextLessonId).toBe("script-2");
   });
 
-  it("orders previous lesson across units", () => {
+  it("unlocks the unit checkpoint after all regular unit lessons", () => {
+    const scriptLessons = orderedLessons().filter((l) => l.unitId === "script" && l.kind !== "CHECKPOINT");
+    const progress = scriptLessons.map((lesson) => ({
+      lessonId: lesson.id,
+      status: "COMPLETE" as const,
+      scoreCorrect: 8,
+      scoreTotal: 8,
+      completedAt: "2026-07-12T00:00:00.000Z",
+    }));
+    const path = buildLearnPathView(progress);
+    const check = path.units[0]?.lessons.find((l) => l.id === "script-check");
+    expect(check?.kind ?? "CHECKPOINT").toBeDefined();
+    expect(check?.status).toBe("AVAILABLE");
+    expect(path.nextLessonId).toBe("script-check");
+  });
+
+  it("orders previous lesson across units including checkpoints", () => {
     expect(previousLessonId("script-1")).toBeNull();
-    expect(previousLessonId("greetings-1")).toBe("script-4");
-    expect(orderedLessons().length).toBeGreaterThanOrEqual(24);
+    expect(previousLessonId("greetings-1")).toBe("script-check");
+    expect(orderedLessons().length).toBeGreaterThanOrEqual(32);
+    expect(orderedLessons().filter((l) => l.kind === "CHECKPOINT").length).toBe(8);
   });
 
   it("requires 60% for completion threshold", () => {

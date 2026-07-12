@@ -83,6 +83,8 @@ export interface StudySessionView {
 
 export type LessonNodeStatus = "LOCKED" | "AVAILABLE" | "IN_PROGRESS" | "COMPLETE";
 
+export type LessonKind = "LESSON" | "CHECKPOINT";
+
 export interface LessonDef {
   id: string;
   unitId: string;
@@ -90,6 +92,10 @@ export interface LessonDef {
   order: number;
   atomIds: string[];
   exerciseCount: number;
+  /** Default LESSON; CHECKPOINT is a scored mini-test for the unit */
+  kind?: LessonKind;
+  /** Short MSA explanations shown before/during the lesson */
+  tips?: string[];
 }
 
 export interface UnitDef {

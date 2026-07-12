@@ -39,6 +39,62 @@ function arabicDistractors(atoms: KnowledgeAtom[], target: KnowledgeAtom, count:
   return shuffle(unique).slice(0, count);
 }
 
+function enToArSelect(atom: KnowledgeAtom, pool: KnowledgeAtom[], index: number): SessionTask {
+  const options = shuffle([atom.canonicalArabic, ...arabicDistractors(pool, atom, 3)]).slice(0, 4);
+  while (options.length < 2) options.push(atom.canonicalArabic);
+  return {
+    id: `ex-${index + 1}`,
+    stage: "LESSON",
+    kind: "SELECT",
+    atomIds: [atom.id],
+    prompt: `Choose the Arabic for “${atom.englishGloss}”.`,
+    promptArabic: null,
+    expectedAnswer: atom.canonicalArabic,
+    estimatedMinutes: 1,
+    inkAtomId: atom.id,
+    choices: options,
+    responseMode: "SELECT",
+  };
+}
+
+function arToEnSelect(atom: KnowledgeAtom, pool: KnowledgeAtom[], index: number): SessionTask {
+  const options = shuffle([atom.englishGloss, ...distractors(pool, atom, 3)]).slice(0, 4);
+  while (options.length < 2) options.push(atom.englishGloss);
+  return {
+    id: `ex-${index + 1}`,
+    stage: "LESSON",
+    kind: "SELECT",
+    atomIds: [atom.id],
+    prompt: "What does this mean?",
+    promptArabic: atom.vocalizedArabic,
+    expectedAnswer: atom.englishGloss,
+    estimatedMinutes: 1,
+    inkAtomId: atom.id,
+    choices: options,
+    responseMode: "SELECT",
+  };
+}
+
+function typeProduce(atom: KnowledgeAtom, index: number): SessionTask {
+  return {
+    id: `ex-${index + 1}`,
+    stage: "LESSON",
+    kind: "PRODUCE",
+    atomIds: [atom.id],
+    prompt: `Type the Arabic for “${atom.englishGloss}”.`,
+    promptArabic: null,
+    expectedAnswer: atom.canonicalArabic,
+    estimatedMinutes: 1,
+    inkAtomId: atom.id,
+    choices: null,
+    responseMode: "TYPE",
+  };
+}
+
+/**
+ * Builds a short lesson or unit checkpoint.
+ * Checkpoints bias toward production (TYPE) and re-use the unit’s atom pool.
+ */
 export function buildLessonPlan(input: BuildLessonPlanInput): SessionPlan {
   const byId = new Map(input.atoms.map((atom) => [atom.id, atom]));
   const lessonAtoms = input.lesson.atomIds
@@ -49,62 +105,26 @@ export function buildLessonPlan(input: BuildLessonPlanInput): SessionPlan {
     throw new Error(`Lesson ${input.lesson.id} has no valid atoms`);
   }
 
-  const count = Math.max(6, Math.min(input.lesson.exerciseCount, 12));
-  const tasks: SessionTask[] = [];
+  const isCheckpoint = input.lesson.kind === "CHECKPOINT";
+  const count = isCheckpoint
+    ? Math.max(8, Math.min(input.lesson.exerciseCount, 12))
+    : Math.max(6, Math.min(input.lesson.exerciseCount, 12));
 
+  const tasks: SessionTask[] = [];
   for (let i = 0; i < count; i += 1) {
     const atom = lessonAtoms[i % lessonAtoms.length];
-    const pattern = i % 3;
-
-    if (pattern === 0) {
-      // EN → AR select
-      const options = shuffle([atom.canonicalArabic, ...arabicDistractors(input.atoms, atom, 3)]).slice(0, 4);
-      while (options.length < 2) options.push(atom.canonicalArabic);
-      tasks.push({
-        id: `ex-${i + 1}`,
-        stage: "LESSON",
-        kind: "SELECT",
-        atomIds: [atom.id],
-        prompt: `Choose the Arabic for “${atom.englishGloss}”.`,
-        promptArabic: null,
-        expectedAnswer: atom.canonicalArabic,
-        estimatedMinutes: 1,
-        inkAtomId: atom.id,
-        choices: options,
-        responseMode: "SELECT",
-      });
-    } else if (pattern === 1) {
-      // AR → EN select
-      const options = shuffle([atom.englishGloss, ...distractors(input.atoms, atom, 3)]).slice(0, 4);
-      while (options.length < 2) options.push(atom.englishGloss);
-      tasks.push({
-        id: `ex-${i + 1}`,
-        stage: "LESSON",
-        kind: "SELECT",
-        atomIds: [atom.id],
-        prompt: "What does this mean?",
-        promptArabic: atom.vocalizedArabic,
-        expectedAnswer: atom.englishGloss,
-        estimatedMinutes: 1,
-        inkAtomId: atom.id,
-        choices: options,
-        responseMode: "SELECT",
-      });
+    // Checkpoint: 0=TYPE, 1=AR→EN, 2=TYPE, 3=EN→AR → ≥50% production
+    // Lesson: 0=EN→AR, 1=AR→EN, 2=TYPE
+    if (isCheckpoint) {
+      const pattern = i % 4;
+      if (pattern === 0 || pattern === 2) tasks.push(typeProduce(atom, i));
+      else if (pattern === 1) tasks.push(arToEnSelect(atom, input.atoms, i));
+      else tasks.push(enToArSelect(atom, input.atoms, i));
     } else {
-      // TYPE produce Arabic
-      tasks.push({
-        id: `ex-${i + 1}`,
-        stage: "LESSON",
-        kind: "PRODUCE",
-        atomIds: [atom.id],
-        prompt: `Type the Arabic for “${atom.englishGloss}”.`,
-        promptArabic: null,
-        expectedAnswer: atom.canonicalArabic,
-        estimatedMinutes: 1,
-        inkAtomId: atom.id,
-        choices: null,
-        responseMode: "TYPE",
-      });
+      const pattern = i % 3;
+      if (pattern === 0) tasks.push(enToArSelect(atom, input.atoms, i));
+      else if (pattern === 1) tasks.push(arToEnSelect(atom, input.atoms, i));
+      else tasks.push(typeProduce(atom, i));
     }
   }
 
@@ -117,4 +137,14 @@ export function buildLessonPlan(input: BuildLessonPlanInput): SessionPlan {
     mode: "LESSON",
     lessonId: input.lesson.id,
   };
+}
+
+export function isCheckpointPlan(plan: SessionPlan, lesson: LessonDef | undefined): boolean {
+  return lesson?.kind === "CHECKPOINT" || Boolean(plan.lessonId?.endsWith("-check"));
+}
+
+export function productionTaskRatio(tasks: SessionTask[]): number {
+  if (tasks.length === 0) return 0;
+  const production = tasks.filter((task) => task.responseMode === "TYPE" || task.kind === "PRODUCE").length;
+  return production / tasks.length;
 }

@@ -55,14 +55,23 @@ export function PathMap() {
     );
   }
 
+  const totalLessons = path.units.reduce((sum, unit) => sum + unit.lessons.length, 0);
+  const completeLessons = path.units.reduce(
+    (sum, unit) => sum + unit.lessons.filter((l) => l.status === "COMPLETE").length,
+    0,
+  );
+
   return (
     <main className="path-shell">
       <header className="path-header">
         <p className="study-room-status-kicker">MSA beginner path</p>
         <h1>Your lessons</h1>
         <p className="path-lede">
-          Short modular lessons — like a structured path, without the game noise. Finish one, unlock
-          the next.
+          Eight units of short modular lessons, each ending in a <strong>checkpoint mini-test</strong>.
+          Explanations before you practice. Ability-aware mastery underneath — no hearts or streaks.
+        </p>
+        <p className="path-scale" aria-label="Path progress">
+          {completeLessons} of {totalLessons} lessons complete · {path.units.length} units
         </p>
         <div className="complete-actions">
           {path.nextLessonId ? (
@@ -86,14 +95,18 @@ export function PathMap() {
             <ol className="path-lessons">
               {unit.lessons.map((lesson) => {
                 const locked = lesson.status === "LOCKED";
-                const className = `path-lesson path-lesson--${lesson.status.toLowerCase()}`;
+                const isCheck = lesson.kind === "CHECKPOINT" || lesson.id.endsWith("-check");
+                const className = `path-lesson path-lesson--${lesson.status.toLowerCase()}${isCheck ? " path-lesson--checkpoint" : ""}`;
                 const inner = (
                   <>
                     <span className="path-lesson-order" aria-hidden="true">
-                      {lesson.order}
+                      {isCheck ? "✓" : lesson.order}
                     </span>
                     <span className="path-lesson-body">
-                      <span className="path-lesson-title">{lesson.title}</span>
+                      <span className="path-lesson-title">
+                        {lesson.title}
+                        {isCheck ? <span className="path-lesson-badge">Mini-test</span> : null}
+                      </span>
                       <span className="path-lesson-status">{statusLabel(lesson.status)}</span>
                     </span>
                   </>

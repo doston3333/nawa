@@ -1,17 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { getLessonById } from "@/domain/curriculum/path";
 import { TaskCard } from "@/features/study-room/task-card";
 import { ProgressSummary } from "@/features/study-room/progress-summary";
+import { LessonTips } from "./lesson-tips";
 import { useLessonSession } from "./use-lesson-session";
 
 export function LessonRunner({ lessonId, title }: { lessonId: string; title?: string }) {
   const session = useLessonSession(lessonId);
+  const lesson = getLessonById(lessonId);
+  const tips = lesson?.tips ?? [];
+  const isCheckpoint = lesson?.kind === "CHECKPOINT";
 
   if (session.loading) {
     return (
       <main className="lesson-shell" aria-busy="true">
-        <p className="study-room-status-kicker">Lesson</p>
+        <p className="study-room-status-kicker">{isCheckpoint ? "Checkpoint" : "Lesson"}</p>
         <h1>Preparing exercises…</h1>
       </main>
     );
@@ -44,8 +49,15 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
   if (!session.currentTask) {
     return (
       <main className="lesson-shell lesson-complete">
-        <p className="study-room-status-kicker">Lesson complete</p>
-        <h1>{title ?? "Lesson complete"}</h1>
+        <p className="study-room-status-kicker">
+          {isCheckpoint ? "Checkpoint complete" : "Lesson complete"}
+        </p>
+        <h1>{title ?? "Complete"}</h1>
+        <p className="path-lede">
+          {isCheckpoint
+            ? "You re-tested this unit’s forms. Production and recognition both count toward mastery."
+            : "Short modular practice done. Ability evidence is saved for retrieval later."}
+        </p>
         <ProgressSummary counts={session.counts} />
         <div className="complete-actions">
           {session.nextLessonId ? (
@@ -76,7 +88,9 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
     <main className="lesson-shell">
       <header className="lesson-header">
         <div className="lesson-header-row">
-          <p className="study-room-status-kicker">Lesson</p>
+          <p className="study-room-status-kicker">
+            {isCheckpoint ? "Unit checkpoint" : "Lesson"}
+          </p>
           <Link className="text-action" href="/learn">
             Path
           </Link>
@@ -84,11 +98,14 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
         <h1 className="lesson-title">{title ?? "Lesson"}</h1>
         <p className="lesson-progress-label">
           Exercise {index + 1} of {total}
+          {isCheckpoint ? " · scored mini-test" : ""}
         </p>
         <div className="lesson-progress-track" aria-hidden="true">
           <div className="lesson-progress-fill" style={{ width: `${pct}%` }} />
         </div>
       </header>
+
+      <LessonTips tips={tips} lessonTitle={title} />
 
       {session.error ? (
         <p className="study-error" role="alert">
