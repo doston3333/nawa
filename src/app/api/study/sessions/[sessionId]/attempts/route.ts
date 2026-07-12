@@ -84,7 +84,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
         })
       : null;
 
-    if (plan.mode === "LESSON" && plan.lessonId && parsed.data.event) {
+    if (plan.mode === "LESSON" && plan.lessonId && parsed.data.event && !(mastery && "replayed" in mastery && mastery.replayed)) {
       await recordLessonAttemptScore({
         profileId,
         lessonId: plan.lessonId,
@@ -92,7 +92,10 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
       });
     }
 
-    await advanceSession(sessionId, parsed.data.nextTaskIndex, profileId);
+    const replayed = Boolean(mastery && "replayed" in mastery && mastery.replayed);
+    if (!replayed) {
+      await advanceSession(sessionId, parsed.data.nextTaskIndex, profileId);
+    }
     const counts = await getAbilityCounts(profileId);
 
     logEvent("attempt_recorded", {
@@ -105,7 +108,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
     });
 
     let lesson: { completed: boolean; nextLessonId: string | null; passed?: boolean } | null = null;
-    const finished = parsed.data.nextTaskIndex >= plan.tasks.length;
+    const finished = !replayed && parsed.data.nextTaskIndex >= plan.tasks.length;
 
     if (finished) {
       logEvent("session_completed", {
@@ -135,7 +138,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
       mastery,
       counts,
       lesson,
-      status: finished ? "COMPLETE" : "ACTIVE",
+      status: replayed ? (session?.status ?? "ACTIVE") : finished ? "COMPLETE" : "ACTIVE",
       plan: livePlan,
     });
   } catch (error) {

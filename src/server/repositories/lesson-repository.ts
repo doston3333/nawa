@@ -105,14 +105,22 @@ export async function recordLessonAttemptScore(input: {
   correct: boolean | null;
 }): Promise<void> {
   if (input.correct === null) return;
-  const existing = await db.lessonProgress.findUnique({
+  await db.$transaction((tx) => recordLessonAttemptScoreWithinTransaction(input, tx));
+}
+
+export async function recordLessonAttemptScoreWithinTransaction(
+  input: { profileId: string; lessonId: string; correct: boolean | null },
+  tx: Prisma.TransactionClient,
+): Promise<void> {
+  if (input.correct === null) return;
+  const existing = await tx.lessonProgress.findUnique({
     where: {
       profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
   });
   const scoreCorrect = (existing?.scoreCorrect ?? 0) + (input.correct ? 1 : 0);
   const scoreTotal = (existing?.scoreTotal ?? 0) + 1;
-  await db.lessonProgress.upsert({
+  await tx.lessonProgress.upsert({
     where: {
       profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
@@ -129,6 +137,29 @@ export async function recordLessonAttemptScore(input: {
       scoreTotal,
     },
   });
+}
+
+export async function completeLessonAfterSessionWithinTransaction(
+  input: { profileId: string; lessonId: string },
+  tx: Prisma.TransactionClient,
+): Promise<{ completed: boolean; nextLessonId: string | null; passed: boolean }> {
+  const row = await tx.lessonProgress.findUnique({
+    where: { profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId } },
+  });
+  const passed = row ? isLessonComplete(row.scoreCorrect, Math.max(row.scoreTotal, 1)) : false;
+  await tx.lessonProgress.upsert({
+    where: { profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId } },
+    update: { status: "COMPLETE", completedAt: new Date() },
+    create: {
+      profileId: input.profileId,
+      lessonId: input.lessonId,
+      status: "COMPLETE",
+      scoreCorrect: row?.scoreCorrect ?? 0,
+      scoreTotal: row?.scoreTotal ?? 0,
+      completedAt: new Date(),
+    },
+  });
+  return { completed: true, nextLessonId: nextLessonId(input.lessonId), passed };
 }
 
 export async function maybeCompleteLesson(input: {
@@ -169,34 +200,5 @@ export async function completeLessonAfterSession(input: {
   profileId: string;
   lessonId: string;
 }): Promise<{ completed: boolean; nextLessonId: string | null; passed: boolean }> {
-  const row = await db.lessonProgress.findUnique({
-    where: {
-      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
-    },
-  });
-  const passed = row ? isLessonComplete(row.scoreCorrect, Math.max(row.scoreTotal, 1)) : false;
-
-  await db.lessonProgress.upsert({
-    where: {
-      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
-    },
-    update: {
-      status: "COMPLETE",
-      completedAt: new Date(),
-    },
-    create: {
-      profileId: input.profileId,
-      lessonId: input.lessonId,
-      status: "COMPLETE",
-      scoreCorrect: row?.scoreCorrect ?? 0,
-      scoreTotal: row?.scoreTotal ?? 0,
-      completedAt: new Date(),
-    },
-  });
-
-  return {
-    completed: true,
-    nextLessonId: nextLessonId(input.lessonId),
-    passed,
-  };
+  return db.$transaction((tx) => completeLessonAfterSessionWithinTransaction(input, tx));
 }
