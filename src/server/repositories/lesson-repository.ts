@@ -11,7 +11,7 @@ import { getLessonById, nextLessonId } from "@/domain/curriculum/path";
 import { buildLessonPlan } from "@/domain/lessons/build-lesson-plan";
 import { buildLearnPathView, isLessonComplete } from "@/domain/lessons/unlock";
 import { db } from "@/server/db";
-import { ensureProfile } from "@/server/repositories/study-repository";
+import { ensureProfile, lockProfileWithinTransaction } from "@/server/repositories/study-repository";
 
 export async function listLessonProgress(profileId: string): Promise<LessonProgressRecord[]> {
   const rows = await db.lessonProgress.findMany({ where: { profileId } });
@@ -113,6 +113,7 @@ export async function recordLessonAttemptScoreWithinTransaction(
   tx: Prisma.TransactionClient,
 ): Promise<void> {
   if (input.correct === null) return;
+  await lockProfileWithinTransaction(tx, input.profileId);
   const existing = await tx.lessonProgress.findUnique({
     where: {
       profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
@@ -143,6 +144,7 @@ export async function completeLessonAfterSessionWithinTransaction(
   input: { profileId: string; lessonId: string },
   tx: Prisma.TransactionClient,
 ): Promise<{ completed: boolean; nextLessonId: string | null; passed: boolean }> {
+  await lockProfileWithinTransaction(tx, input.profileId);
   const row = await tx.lessonProgress.findUnique({
     where: { profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId } },
   });

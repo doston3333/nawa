@@ -4,6 +4,8 @@ import { getLessonById } from "@/domain/curriculum/path";
 import { db } from "@/server/db";
 import {
   advanceSessionWithinTransaction,
+  lockKey,
+  lockProfileWithinTransaction,
   recordEvidenceWithinTransaction,
 } from "@/server/repositories/study-repository";
 import {
@@ -50,6 +52,9 @@ type Ack = SyncPushResult["acknowledgements"][number];
 
 const EMPTY_CURSOR = "MA";
 
+/** Test-only scheduling hook used to exercise cursor/commit interleavings. */
+export const syncTestHooks: { beforePushCursor?: () => Promise<void> } = {};
+
 /** Errors raised by the sync contract are safe for callers to expose as 400s. */
 export class SyncInputError extends Error {
   readonly code: string;
@@ -80,12 +85,6 @@ function decodeCursor(cursor: string | null | undefined, profileId: string): big
     if (error instanceof SyncInputError) throw error;
     throw new SyncInputError("INVALID_CURSOR", "Cursor is invalid or belongs to another profile");
   }
-}
-
-async function lockKey(tx: Prisma.TransactionClient, key: string): Promise<void> {
-  // Advisory transaction locks serialize read/modify/write operations without
-  // holding application locks or requiring a second coordination service.
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -122,8 +121,11 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
 
-async function currentCursor(profileId?: string): Promise<string> {
-  const row = await db.syncChange.findFirst({
+async function currentCursor(
+  profileId: string | undefined,
+  client: Prisma.TransactionClient | typeof db = db,
+): Promise<string> {
+  const row = await client.syncChange.findFirst({
     where: profileId ? { profileId } : undefined,
     orderBy: { id: "desc" },
     select: { id: true },
@@ -142,7 +144,12 @@ function storedAck(row: { mutationId: string; status: string; result: unknown })
   return { mutationId: row.mutationId, status: "ACKNOWLEDGED", result: row.result };
 }
 
-async function applyMutation(mutation: SyncMutationInput, requestProfileId: string, requestDeviceId: string): Promise<Ack> {
+async function applyMutationWithinTransaction(
+  mutation: SyncMutationInput,
+  requestProfileId: string,
+  requestDeviceId: string,
+  tx: Prisma.TransactionClient,
+): Promise<Ack> {
   if (mutation.profileId !== requestProfileId) {
     return {
       mutationId: mutation.mutationId,
@@ -157,142 +164,93 @@ async function applyMutation(mutation: SyncMutationInput, requestProfileId: stri
       result: { code: "DEVICE_MISMATCH", error: "Mutation does not belong to the selected device" },
     };
   }
-
-  try {
-    return await db.$transaction(async (tx) => {
-      // Serialize all changes for a profile. PostgreSQL sequence values are
-      // allocated before commit, so without this lock a later committed row
-      // could make the returned cursor skip an earlier still-uncommitted row.
-      await lockKey(tx, `sync-profile:${mutation.profileId}`);
-      const existing = await tx.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
-      if (existing) {
-        if (existing.profileId !== mutation.profileId || existing.deviceId !== mutation.deviceId) {
-          return {
-            mutationId: mutation.mutationId,
-            status: "REJECTED",
-            result: { code: "MUTATION_OWNERSHIP_MISMATCH", error: "Mutation belongs to another profile or device" },
-          } satisfies Ack;
-        }
-        return storedAck(existing);
-      }
-
-      const profile = await tx.profile.findUnique({ where: { id: mutation.profileId }, select: { id: true } });
-      if (!profile) {
-        return {
-          mutationId: mutation.mutationId,
-          status: "REJECTED",
-          result: { code: "PROFILE_NOT_FOUND", error: "Profile does not exist" },
-        } satisfies Ack;
-      }
-
-      const entity = entityForMutation(mutation);
-      await lockKey(tx, `sync:${mutation.profileId}:${entity.entityType}:${entity.entityId}`);
-      const latest = await tx.syncChange.findFirst({
-        where: { profileId: mutation.profileId, entityType: entity.entityType, entityId: entity.entityId },
-        orderBy: { revision: "desc" },
-        select: { revision: true },
-      });
-      const latestRevision = latest?.revision ?? 0;
-      if (mutation.baseRevision !== null && mutation.baseRevision !== latestRevision) {
-        const conflict = {
-          code: "BASE_REVISION_MISMATCH",
-          entity,
-          expectedRevision: latestRevision,
-          receivedRevision: mutation.baseRevision,
-        };
-        await tx.syncMutation.create({
-          data: {
-            mutationId: mutation.mutationId,
-            profileId: mutation.profileId,
-            deviceId: mutation.deviceId,
-            kind: mutation.kind,
-            payload: jsonValue(mutation.payload),
-            status: "CONFLICT",
-            result: jsonValue(conflict),
-            createdAt: new Date(mutation.createdAt),
-          },
-        });
-        return { mutationId: mutation.mutationId, status: "CONFLICT", conflict } satisfies Ack;
-      }
-
-      let result: unknown;
-      if (mutation.kind === "STUDY_ATTEMPT") {
-        result = await applyStudyAttempt(mutation, tx);
-      } else if (mutation.kind === "LESSON_PROGRESS") {
-        result = await applyLessonProgress(mutation, tx);
-      } else {
-        throw new Error("Unsupported mutation kind");
-      }
-
-      const revision = latestRevision + 1;
-      await tx.syncChange.create({
-        data: {
-          profileId: mutation.profileId,
-          entityType: entity.entityType,
-          entityId: entity.entityId,
-          operation: "UPSERT",
-          revision,
-          payload: jsonValue(result),
-        },
-      });
-      await tx.syncMutation.create({
-        data: {
-          mutationId: mutation.mutationId,
-          profileId: mutation.profileId,
-          deviceId: mutation.deviceId,
-          kind: mutation.kind,
-          payload: jsonValue(mutation.payload),
-          status: "ACKNOWLEDGED",
-          result: jsonValue(result),
-          createdAt: new Date(mutation.createdAt),
-        },
-      });
-      return { mutationId: mutation.mutationId, status: "ACKNOWLEDGED", result } satisfies Ack;
-    });
-  } catch (error) {
-    // A concurrent request may have won the mutation UUID race. Replaying it
-    // is safe and returns the winner's stable result.
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
-      const existing = await db.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
-      if (existing && existing.profileId === mutation.profileId && existing.deviceId === mutation.deviceId) {
-        return storedAck(existing);
-      }
+  // Serialize the complete profile stream. The push batch holds this lock in
+  // its outer transaction, while single-mutation pushes acquire it here.
+  await lockProfileWithinTransaction(tx, mutation.profileId);
+  const existing = await tx.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
+  if (existing) {
+    if (existing.profileId !== mutation.profileId || existing.deviceId !== mutation.deviceId) {
+      return {
+        mutationId: mutation.mutationId,
+        status: "REJECTED",
+        result: { code: "MUTATION_OWNERSHIP_MISMATCH", error: "Mutation belongs to another profile or device" },
+      } satisfies Ack;
     }
-    const rejected: Ack = {
+    return storedAck(existing);
+  }
+
+  const profile = await tx.profile.findUnique({ where: { id: mutation.profileId }, select: { id: true } });
+  if (!profile) {
+    return {
       mutationId: mutation.mutationId,
       status: "REJECTED",
-      result: { code: "MUTATION_REJECTED", error: error instanceof Error ? error.message : "Mutation rejected" },
-    };
-    // Preserve rejected mutations as deterministic ledger entries. This is a
-    // separate transaction because the application transaction above rolled
-    // back the attempted operation.
-    try {
-      const profile = await db.profile.findUnique({ where: { id: mutation.profileId }, select: { id: true } });
-      if (profile) {
-        const existing = await db.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
-        if (existing) {
-          if (existing.profileId === mutation.profileId && existing.deviceId === mutation.deviceId) return storedAck(existing);
-          return rejected;
-        }
-        await db.syncMutation.create({
-          data: {
-            mutationId: mutation.mutationId,
-            profileId: mutation.profileId,
-            deviceId: mutation.deviceId,
-            kind: mutation.kind,
-            payload: jsonValue(mutation.payload),
-            status: "REJECTED",
-            result: jsonValue(rejected.result),
-            createdAt: new Date(mutation.createdAt),
-          },
-        });
-      }
-    } catch {
-      // Keep the stable in-memory acknowledgement even if a concurrent retry
-      // wins the ledger insert race.
-    }
-    return rejected;
+      result: { code: "PROFILE_NOT_FOUND", error: "Profile does not exist" },
+    } satisfies Ack;
   }
+
+  const entity = entityForMutation(mutation);
+  await lockKey(tx, `sync:${mutation.profileId}:${entity.entityType}:${entity.entityId}`);
+  const latest = await tx.syncChange.findFirst({
+    where: { profileId: mutation.profileId, entityType: entity.entityType, entityId: entity.entityId },
+    orderBy: { revision: "desc" },
+    select: { revision: true },
+  });
+  const latestRevision = latest?.revision ?? 0;
+  if (mutation.baseRevision !== null && mutation.baseRevision !== latestRevision) {
+    const conflict = {
+      code: "BASE_REVISION_MISMATCH",
+      entity,
+      expectedRevision: latestRevision,
+      receivedRevision: mutation.baseRevision,
+    };
+    await tx.syncMutation.create({
+      data: {
+        mutationId: mutation.mutationId,
+        profileId: mutation.profileId,
+        deviceId: mutation.deviceId,
+        kind: mutation.kind,
+        payload: jsonValue(mutation.payload),
+        status: "CONFLICT",
+        result: jsonValue(conflict),
+        createdAt: new Date(mutation.createdAt),
+      },
+    });
+    return { mutationId: mutation.mutationId, status: "CONFLICT", conflict } satisfies Ack;
+  }
+
+  let result: unknown;
+  if (mutation.kind === "STUDY_ATTEMPT") {
+    result = await applyStudyAttempt(mutation, tx);
+  } else if (mutation.kind === "LESSON_PROGRESS") {
+    result = await applyLessonProgress(mutation, tx);
+  } else {
+    throw new Error("Unsupported mutation kind");
+  }
+
+  const revision = latestRevision + 1;
+  await tx.syncChange.create({
+    data: {
+      profileId: mutation.profileId,
+      entityType: entity.entityType,
+      entityId: entity.entityId,
+      operation: "UPSERT",
+      revision,
+      payload: jsonValue(result),
+    },
+  });
+  await tx.syncMutation.create({
+    data: {
+      mutationId: mutation.mutationId,
+      profileId: mutation.profileId,
+      deviceId: mutation.deviceId,
+      kind: mutation.kind,
+      payload: jsonValue(mutation.payload),
+      status: "ACKNOWLEDGED",
+      result: jsonValue(result),
+      createdAt: new Date(mutation.createdAt),
+    },
+  });
+  return { mutationId: mutation.mutationId, status: "ACKNOWLEDGED", result } satisfies Ack;
 }
 
 async function applyStudyAttempt(mutation: SyncMutationInput, tx: Prisma.TransactionClient): Promise<unknown> {
@@ -367,6 +325,46 @@ async function applyLessonProgress(mutation: SyncMutationInput, tx: Prisma.Trans
   });
 }
 
+async function persistRejectedWithinTransaction(
+  tx: Prisma.TransactionClient,
+  mutation: SyncMutationInput,
+  rejected: Ack,
+): Promise<Ack> {
+  const profile = await tx.profile.findUnique({ where: { id: mutation.profileId }, select: { id: true } });
+  if (!profile) return rejected;
+  const existing = await tx.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
+  if (existing) {
+    if (existing.profileId === mutation.profileId && existing.deviceId === mutation.deviceId) return storedAck(existing);
+    return rejected;
+  }
+  const createdAt = new Date(mutation.createdAt);
+  // Keep the original service behavior for malformed timestamps: reject the
+  // mutation without allowing a failed ledger insert to abort the batch.
+  if (Number.isNaN(createdAt.getTime())) return rejected;
+  await tx.$executeRaw`SAVEPOINT nawa_sync_rejected`;
+  try {
+    await tx.syncMutation.create({
+      data: {
+        mutationId: mutation.mutationId,
+        profileId: mutation.profileId,
+        deviceId: mutation.deviceId,
+        kind: mutation.kind,
+        payload: jsonValue(mutation.payload),
+        status: "REJECTED",
+        result: jsonValue(rejected.result),
+        createdAt,
+      },
+    });
+    await tx.$executeRaw`RELEASE SAVEPOINT nawa_sync_rejected`;
+  } catch {
+    await tx.$executeRaw`ROLLBACK TO SAVEPOINT nawa_sync_rejected`;
+    await tx.$executeRaw`RELEASE SAVEPOINT nawa_sync_rejected`;
+    const raced = await tx.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
+    if (raced && raced.profileId === mutation.profileId && raced.deviceId === mutation.deviceId) return storedAck(raced);
+  }
+  return rejected;
+}
+
 export async function pushMutations(input: { profileId: string; deviceId: string; mutations: SyncMutationInput[] }): Promise<SyncPushResult> {
   if (input.mutations.length > 50) throw new Error("A sync push may contain at most 50 mutations");
   if (!input.deviceId) throw new SyncInputError("DEVICE_REQUIRED", "deviceId is required");
@@ -374,9 +372,33 @@ export async function pushMutations(input: { profileId: string; deviceId: string
   if (!device || device.profileId !== input.profileId) {
     throw new SyncInputError("DEVICE_MISMATCH", "Device does not belong to the selected profile");
   }
-  const acknowledgements: Ack[] = [];
-  for (const mutation of input.mutations) acknowledgements.push(await applyMutation(mutation, input.profileId, input.deviceId));
-  return { acknowledgements, cursor: await currentCursor(input.profileId) };
+  return db.$transaction(async (tx) => {
+    // Keep the profile advisory lock until the cursor snapshot is read. A
+    // concurrent same-profile push therefore cannot commit a change between
+    // the final mutation acknowledgement and this cursor read.
+    await lockProfileWithinTransaction(tx, input.profileId);
+    const acknowledgements: Ack[] = [];
+    for (const mutation of input.mutations) {
+      // Each mutation gets a savepoint so a malformed/rejected mutation can be
+      // recorded while the rest of the batch remains atomic with the cursor.
+      await tx.$executeRaw`SAVEPOINT nawa_sync_mutation`;
+      try {
+        acknowledgements.push(await applyMutationWithinTransaction(mutation, input.profileId, input.deviceId, tx));
+        await tx.$executeRaw`RELEASE SAVEPOINT nawa_sync_mutation`;
+      } catch (error) {
+        await tx.$executeRaw`ROLLBACK TO SAVEPOINT nawa_sync_mutation`;
+        const rejected: Ack = {
+          mutationId: mutation.mutationId,
+          status: "REJECTED",
+          result: { code: "MUTATION_REJECTED", error: error instanceof Error ? error.message : "Mutation rejected" },
+        };
+        acknowledgements.push(await persistRejectedWithinTransaction(tx, mutation, rejected));
+        await tx.$executeRaw`RELEASE SAVEPOINT nawa_sync_mutation`;
+      }
+    }
+    await syncTestHooks.beforePushCursor?.();
+    return { acknowledgements, cursor: await currentCursor(input.profileId, tx) };
+  });
 }
 
 export async function pullChanges(input: { profileId: string; cursor?: string }): Promise<SyncPullResult> {

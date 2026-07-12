@@ -78,3 +78,40 @@ Tests 86 passed (86)
 pnpm build
 Compiled successfully; TypeScript passed; 14 static pages generated; sync routes present.
 ```
+
+## Cursor race and online/offline lock follow-up
+
+- `pushMutations` now holds the profile advisory transaction lock across the
+  entire push batch and its cursor read. Per-mutation savepoints preserve the
+  existing rejected-mutation ledger behavior while keeping the batch cursor
+  snapshot on the same transaction.
+- Added a deterministic concurrency regression test proving a same-profile
+  change committed by a concurrent push remains visible after the first push's
+  returned cursor (`src/server/sync.test.ts`).
+- Shared profile/mastery advisory locks now cover ordinary online attempts and
+  lesson score/completion/session updates, so those paths serialize with
+  offline sync read-modify-write operations.
+
+Exact verification (2026-07-12):
+
+```text
+pnpm vitest run src/server/sync.test.ts
+Test Files 1 passed (1)
+Tests 7 passed (7)
+
+pnpm typecheck
+PASS (exit 0)
+
+pnpm lint
+PASS (exit 0)
+
+git diff --check
+PASS (exit 0)
+
+pnpm test
+Test Files 34 passed (34)
+Tests 87 passed (87)
+
+pnpm build
+Compiled successfully; TypeScript passed; 14 static pages generated; sync routes present.
+```

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
-import { pullChanges, pushMutations, SyncInputError, type SyncMutationInput } from "@/server/sync";
+import { pullChanges, pushMutations, SyncInputError, syncTestHooks, type SyncMutationInput } from "@/server/sync";
 
 const profileId = randomUUID();
 const deviceId = randomUUID();
@@ -36,10 +36,12 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  syncTestHooks.beforePushCursor = undefined;
   await db.syncChange.deleteMany({ where: { profileId } });
   await db.syncMutation.deleteMany({ where: { profileId } });
   await db.evidenceEvent.deleteMany({ where: { profileId } });
   await db.masterySnapshot.deleteMany({ where: { profileId } });
+  await db.lessonProgress.deleteMany({ where: { profileId } });
   await db.studySession.update({ where: { id: sessionId }, data: { currentTaskIndex: 0, status: "ACTIVE" } });
 });
 
@@ -102,5 +104,42 @@ describe("idempotent synchronization", () => {
     expect(results.filter((result) => result.acknowledgements[0]?.status === "REJECTED")).toHaveLength(1);
     expect(await db.evidenceEvent.count({ where: { profileId } })).toBe(1);
     expect(await db.studySession.findUnique({ where: { id: sessionId } }).then((row) => row?.currentTaskIndex)).toBe(1);
+  });
+
+  it("does not let a concurrent same-profile change get skipped by the push cursor", async () => {
+    let entered!: () => void;
+    const enteredCursor = new Promise<void>((resolve) => { entered = resolve; });
+    let release!: () => void;
+    const releaseCursor = new Promise<void>((resolve) => { release = resolve; });
+    syncTestHooks.beforePushCursor = async () => {
+      entered();
+      await releaseCursor;
+    };
+
+    const mutation = (lessonId: string): SyncMutationInput => ({
+      mutationId: randomUUID(), profileId, deviceId, kind: "LESSON_PROGRESS", baseRevision: null,
+      createdAt: "2026-07-12T00:00:00.000Z",
+      payload: { lessonId, correct: null, status: "IN_PROGRESS" },
+    });
+    const firstPromise = pushMutations({ profileId, deviceId, mutations: [mutation("script-1")] });
+    await enteredCursor;
+    const secondPromise = pushMutations({ profileId, deviceId, mutations: [mutation("script-2")] });
+
+    // The second push must wait for the first transaction's cursor snapshot.
+    // This also makes the test deterministic against the pre-fix interleaving,
+    // where the second push could commit while the first read its cursor.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    release();
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+    syncTestHooks.beforePushCursor = undefined;
+
+    expect(second.acknowledgements[0]?.status).toBe("ACKNOWLEDGED");
+    const secondChange = await db.syncChange.findFirst({
+      where: { profileId, entityId: `${profileId}:script-2` },
+      select: { id: true },
+    });
+    expect(secondChange).not.toBeNull();
+    const unseen = await pullChanges({ profileId, cursor: first.cursor });
+    expect(unseen.changes.some((change) => change.id === secondChange!.id.toString())).toBe(true);
   });
 });

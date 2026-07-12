@@ -6,6 +6,20 @@ import { applyEvidence, createInitialSnapshot } from "@/domain/mastery/apply-evi
 import { buildSessionPlan } from "@/domain/sessions/build-session-plan";
 import { db } from "@/server/db";
 
+/** Serialize profile-scoped read/modify/write operations across online and
+ * offline sync paths. PostgreSQL releases this transaction advisory lock when
+ * the surrounding transaction commits or rolls back. */
+export async function lockKey(tx: Prisma.TransactionClient, key: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+}
+
+export async function lockProfileWithinTransaction(
+  tx: Prisma.TransactionClient,
+  profileId: string,
+): Promise<void> {
+  await lockKey(tx, `sync-profile:${profileId}`);
+}
+
 export async function ensureProfile(profileId: string): Promise<void> {
   await db.profile.upsert({
     where: { id: profileId },
@@ -79,6 +93,8 @@ export async function recordEvidenceWithinTransaction(
   input: { sessionId: string; taskId: string; event: EvidenceEvent },
   tx: Prisma.TransactionClient,
 ): Promise<MasterySnapshot & { replayed?: boolean }> {
+  await lockProfileWithinTransaction(tx, input.event.profileId);
+  await lockKey(tx, `mastery:${input.event.profileId}:${input.event.atomId}:${input.event.ability}`);
   const markReplay = (snapshot: MasterySnapshot, replayed: boolean) => {
     Object.defineProperty(snapshot, "replayed", { value: replayed, enumerable: false });
     return snapshot as MasterySnapshot & { replayed?: boolean };
@@ -197,6 +213,7 @@ export async function advanceSessionWithinTransaction(
   tx: Prisma.TransactionClient,
   strict = true,
 ): Promise<void> {
+  if (profileId) await lockProfileWithinTransaction(tx, profileId);
   const session = await tx.studySession.findUniqueOrThrow({ where: { id: sessionId } });
   if (profileId && session.profileId !== profileId) {
     throw new Error("Session does not belong to this profile");
