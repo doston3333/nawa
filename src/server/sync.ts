@@ -355,11 +355,21 @@ async function applyStudyAttempt(mutation: SyncMutationInput, tx: Prisma.Transac
   const mastery = await recordEvidenceWithinTransaction({ sessionId, taskId, event }, tx);
   let lesson: unknown = null;
   if (!mastery.replayed) {
-    if (plan.mode === "LESSON" && plan.lessonId) {
+    if (session.courseId && session.curriculumVersion !== null && session.lessonId) {
+      const courseLesson = validateActiveCourseLesson(session.courseId, session.curriculumVersion, session.lessonId);
+      await recordCourseAttemptWithinTransaction({
+        id: event.id, profileId: mutation.profileId, courseId: session.courseId, curriculumVersion: session.curriculumVersion,
+        lessonId: session.lessonId, skillId: event.skillId ?? courseLesson.skillIds[0]!,
+        exerciseType: event.exerciseType ?? courseLesson.steps[taskIndex]?.kind ?? courseLesson.steps[0]!.kind,
+        correct: event.correct, responseTimeMs: event.responseTimeMs ?? event.latencyMs,
+        hintUsed: event.hintUsed ?? event.helpLevel > 0, errorClassification: event.errorClassification ?? null,
+        handwritingMetrics: event.handwritingMetrics ?? undefined, occurredAt: event.occurredAt,
+      }, tx);
+    } else if (plan.mode === "LESSON" && plan.lessonId) {
       await recordLessonAttemptScoreWithinTransaction({ profileId: mutation.profileId, lessonId: plan.lessonId, correct: event.correct }, tx);
     }
     await advanceSessionWithinTransaction(sessionId, nextTaskIndex, mutation.profileId, tx);
-    if (nextTaskIndex >= plan.tasks.length && plan.mode === "LESSON" && plan.lessonId) {
+    if (nextTaskIndex >= plan.tasks.length && !session.courseId && plan.mode === "LESSON" && plan.lessonId) {
       lesson = await completeLessonAfterSessionWithinTransaction({ profileId: mutation.profileId, lessonId: plan.lessonId }, tx);
     }
   }

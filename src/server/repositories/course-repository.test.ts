@@ -4,6 +4,7 @@ import { ACTIVE_COURSE } from "@/domain/course/catalog";
 import { db } from "@/server/db";
 import {
   getActiveCoursePathContract,
+  getVersionedLearnPath,
   startVersionedLessonSession,
   validateActiveCourseLesson,
   validateActiveCourseSkill,
@@ -52,4 +53,14 @@ it("keeps legacy lesson records isolated from versioned-course completion and en
   expect(resumed.plan.id).toBe(started.plan.id);
   expect(await db.courseEnrollment.count({ where: { profileId: otherProfileId } })).toBe(0);
   expect(await db.lessonProgress.findUnique({ where: { profileId_lessonId: { profileId, lessonId: "script-1" } } })).toMatchObject({ status: "COMPLETE" });
+});
+
+it("projects only versioned skill progress into the public active path", async () => {
+  const first = ACTIVE_COURSE.units[0]!.lessons[0]!;
+  await db.lessonProgress.create({ data: { profileId: otherProfileId, lessonId: first.id, status: "COMPLETE", scoreCorrect: 9, scoreTotal: 9 } });
+  const before = await getVersionedLearnPath(otherProfileId);
+  expect(before.units[0]!.lessons[0]!.status).toBe("AVAILABLE");
+  await db.courseSkillProgress.create({ data: { profileId: otherProfileId, courseId: ACTIVE_COURSE.id, curriculumVersion: 1, skillId: first.skillIds[0]!, attemptCount: 3, correctCount: 3, status: "MASTERED" } });
+  const after = await getVersionedLearnPath(otherProfileId);
+  expect(after.units[0]!.lessons[0]!.status).toBe("COMPLETE");
 });

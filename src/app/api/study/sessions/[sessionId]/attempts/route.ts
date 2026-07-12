@@ -8,10 +8,7 @@ import {
   getAbilityCounts,
   recordEvidence,
 } from "@/server/repositories/study-repository";
-import {
-  completeLessonAfterSession,
-  recordLessonAttemptScore,
-} from "@/server/repositories/lesson-repository";
+import { recordCourseAttemptWithinTransaction, validateActiveCourseLesson } from "@/server/repositories/course-repository";
 import { checkRateLimit } from "@/server/rate-limit";
 import { logEvent, logLearnerRef } from "@/server/log";
 import { db } from "@/server/db";
@@ -38,6 +35,13 @@ const eventSchema = z.object({
   confidence: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   novelContext: z.boolean(),
   analysisConfidence: z.number().min(0).max(1).nullable(),
+  curriculumVersion: z.number().int().nonnegative().nullable().optional(),
+  skillId: z.string().min(1).nullable().optional(),
+  exerciseType: z.string().min(1).nullable().optional(),
+  responseTimeMs: z.number().int().nonnegative().nullable().optional(),
+  hintUsed: z.boolean().nullable().optional(),
+  errorClassification: z.string().min(1).nullable().optional(),
+  handwritingMetrics: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 const bodySchema = z.object({
   taskId: z.string().min(1),
@@ -76,6 +80,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
     const { sessionId } = await context.params;
     const plan = await assertSessionOwnedBy(sessionId, profileId);
 
+    const sessionRecord = await db.studySession.findUnique({ where: { id: sessionId } });
     const mastery = parsed.data.event
       ? await recordEvidence({
           sessionId,
@@ -84,12 +89,22 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
         })
       : null;
 
-    if (plan.mode === "LESSON" && plan.lessonId && parsed.data.event && !(mastery && "replayed" in mastery && mastery.replayed)) {
-      await recordLessonAttemptScore({
-        profileId,
-        lessonId: plan.lessonId,
-        correct: parsed.data.event.correct,
-      });
+    const event = parsed.data.event;
+    if (sessionRecord?.courseId && sessionRecord.curriculumVersion !== null && sessionRecord.lessonId && event && !(mastery && "replayed" in mastery && mastery.replayed)) {
+      const courseId = sessionRecord.courseId;
+      const curriculumVersion = sessionRecord.curriculumVersion;
+      const lessonId = sessionRecord.lessonId;
+      const courseLesson = validateActiveCourseLesson(courseId, curriculumVersion, lessonId);
+      const courseSkillId = event.skillId ?? courseLesson.skillIds[0]!;
+      const courseExerciseType = event.exerciseType ?? courseLesson.steps[sessionRecord.currentTaskIndex]?.kind ?? courseLesson.steps[0]!.kind;
+      await db.$transaction((tx) => recordCourseAttemptWithinTransaction({
+        id: event.id, profileId, courseId, curriculumVersion,
+        lessonId, skillId: courseSkillId, exerciseType: courseExerciseType,
+        correct: event.correct, responseTimeMs: event.responseTimeMs ?? event.latencyMs,
+        hintUsed: event.hintUsed ?? event.helpLevel > 0,
+        errorClassification: event.errorClassification ?? null,
+        handwritingMetrics: event.handwritingMetrics ?? undefined, occurredAt: event.occurredAt,
+      }, tx));
     }
 
     const replayed = Boolean(mastery && "replayed" in mastery && mastery.replayed);
@@ -116,11 +131,8 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
         sessionId,
         mode: plan.mode ?? "STUDY_ROOM",
       });
-      if (plan.mode === "LESSON" && plan.lessonId) {
-        lesson = await completeLessonAfterSession({
-          profileId,
-          lessonId: plan.lessonId,
-        });
+      if (sessionRecord?.courseId && sessionRecord.lessonId) {
+        lesson = { completed: true, nextLessonId: null, passed: true };
         logEvent("lesson_completed", {
           profile: logLearnerRef(profileId),
           lessonId: plan.lessonId,

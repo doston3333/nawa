@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/server/db";
 import { advanceSession, ensureProfile, startOrResumeSession } from "@/server/repositories/study-repository";
 import { getLearnPath } from "@/server/repositories/lesson-repository";
+import { ACTIVE_COURSE } from "@/domain/course/catalog";
 
 const profileA = randomUUID();
 const profileB = randomUUID();
@@ -60,8 +61,11 @@ it("keeps concurrent visitors on isolated study sessions", async () => {
 });
 
 it("keeps lesson path progress and profile identity isolated", async () => {
-  await db.lessonProgress.create({
-    data: { profileId: profileA, lessonId: "rtl-baseline-lesson-1", status: "IN_PROGRESS" },
+  await db.courseSkillProgress.create({
+    data: {
+      profileId: profileA, courseId: ACTIVE_COURSE.id, curriculumVersion: ACTIVE_COURSE.version,
+      skillId: "rtl-baseline-skill-1", attemptCount: 1, correctCount: 1, status: "IN_PROGRESS",
+    },
   });
 
   const [pathA, pathB, profiles] = await Promise.all([

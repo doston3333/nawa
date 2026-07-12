@@ -187,6 +187,9 @@ export async function recordCourseAttemptWithinTransaction(input: {
   if (!lesson.skillIds.includes(skill.id)) throw new Error("skillId is not part of the lesson");
   if (!Number.isInteger(input.responseTimeMs) || input.responseTimeMs < 0) throw new Error("responseTimeMs must be a non-negative integer");
   await ensureEnrollment(tx, input.profileId, input.courseId, input.curriculumVersion);
+  // Sync mutations bypass session start, so enforce the same prerequisite
+  // boundary while the attempt, progress, and mutation ledger share a txn.
+  await assertLessonPrerequisites(tx, input.profileId, lesson);
   const existingAttempt = await tx.courseAttempt.findUnique({ where: { id: input.id } });
   if (existingAttempt) return existingAttempt;
   await tx.courseAttempt.create({

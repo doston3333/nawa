@@ -5,10 +5,10 @@ import type {
   StudySessionView,
 } from "@/domain/learning/types";
 import { nextActiveLessonId } from "@/domain/curriculum/path";
-import { buildLearnPathView, isLessonComplete } from "@/domain/lessons/unlock";
+import { isLessonComplete } from "@/domain/lessons/unlock";
 import { db } from "@/server/db";
 import { ensureProfile, lockProfileWithinTransaction } from "@/server/repositories/study-repository";
-import { getActiveCoursePathContract, startVersionedLessonSession } from "@/server/repositories/course-repository";
+import { getActiveCoursePathContract, getVersionedLearnPath, startVersionedLessonSession } from "@/server/repositories/course-repository";
 import { ACTIVE_COURSE } from "@/domain/course/catalog";
 
 export async function listLessonProgress(profileId: string): Promise<LessonProgressRecord[]> {
@@ -24,10 +24,7 @@ export async function listLessonProgress(profileId: string): Promise<LessonProgr
 
 export async function getLearnPath(profileId: string): Promise<LearnPathView & { course: ReturnType<typeof getActiveCoursePathContract> }> {
   await ensureProfile(profileId);
-  const progress = await listLessonProgress(profileId);
-  // Historical IDs do not occur in ACTIVE_COURSE, so retained old progress is
-  // readable without completing a new-course lesson.
-  return { ...buildLearnPathView(progress), course: getActiveCoursePathContract() };
+  return { ...await getVersionedLearnPath(profileId), course: getActiveCoursePathContract() };
 }
 
 export async function startLessonSession(input: {

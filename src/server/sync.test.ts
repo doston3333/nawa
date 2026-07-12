@@ -42,6 +42,10 @@ beforeEach(async () => {
   await db.evidenceEvent.deleteMany({ where: { profileId } });
   await db.masterySnapshot.deleteMany({ where: { profileId } });
   await db.lessonProgress.deleteMany({ where: { profileId } });
+  await db.courseAttempt.deleteMany({ where: { profileId } });
+  await db.courseReview.deleteMany({ where: { profileId } });
+  await db.courseSkillProgress.deleteMany({ where: { profileId } });
+  await db.courseEnrollment.deleteMany({ where: { profileId } });
   await db.studySession.update({ where: { id: sessionId }, data: { currentTaskIndex: 0, status: "ACTIVE" } });
 });
 
@@ -51,6 +55,38 @@ afterAll(async () => {
 });
 
 describe("idempotent synchronization", () => {
+  it("rejects a course attempt for a lesson whose prerequisite skill is locked", async () => {
+    const mutation: SyncMutationInput = {
+      mutationId: randomUUID(), profileId, deviceId, kind: "COURSE_ATTEMPT", baseRevision: null,
+      createdAt: "2026-07-12T00:00:00.000Z",
+      payload: { courseId: "pre-a1-v1", curriculumVersion: 1, lessonId: "rtl-baseline-lesson-2", skillId: "rtl-baseline-skill-2", exerciseType: "SORTING", correct: true, responseTimeMs: 100, hintUsed: false },
+    };
+    const result = await pushMutations({ profileId, deviceId, mutations: [mutation] });
+    expect(result.acknowledgements[0]).toMatchObject({ status: "REJECTED", result: { error: expect.stringContaining("prerequisites") } });
+    expect(await db.courseAttempt.count({ where: { profileId } })).toBe(0);
+  });
+
+  it("records a versioned lesson session attempt without writing legacy lesson progress", async () => {
+    const versionedSessionId = randomUUID();
+    await db.studySession.create({
+      data: {
+        id: versionedSessionId, profileId, durationMinutes: 30, courseId: "pre-a1-v1", curriculumVersion: 1,
+        lessonId: "rtl-baseline-lesson-1",
+        plan: { id: versionedSessionId, mode: "LESSON", lessonId: "rtl-baseline-lesson-1", tasks: [{ id: "versioned-task" }] },
+        startedAt: new Date("2026-07-12T00:00:00.000Z"),
+      },
+    });
+    const mutation: SyncMutationInput = {
+      mutationId: randomUUID(), profileId, deviceId, kind: "STUDY_ATTEMPT", baseRevision: null,
+      createdAt: "2026-07-12T00:00:00.000Z",
+      payload: { sessionId: versionedSessionId, taskId: "versioned-task", nextTaskIndex: 1, event: event() },
+    };
+    const result = await pushMutations({ profileId, deviceId, mutations: [mutation] });
+    expect(result.acknowledgements[0]?.status).toBe("ACKNOWLEDGED");
+    expect(await db.lessonProgress.count({ where: { profileId, lessonId: "rtl-baseline-lesson-1" } })).toBe(0);
+    expect(await db.courseAttempt.count({ where: { profileId, lessonId: "rtl-baseline-lesson-1" } })).toBe(1);
+  });
+
   it("projects a course attempt once when its stable mutation is replayed", async () => {
     const lessonId = "rtl-baseline-lesson-1";
     const skillId = "rtl-baseline-skill-1";

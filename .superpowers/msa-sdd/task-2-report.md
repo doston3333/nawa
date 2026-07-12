@@ -38,3 +38,11 @@
 - `pnpm test` — 50 files / 153 tests passed.
 - `pnpm lint` — passed.
 - `pnpm typecheck` — passed.
+
+## Review remediation
+
+- Public `getLearnPath` now projects `CourseSkillProgress` only; `LessonProgress` remains historical and is no longer used to render the active course path.
+- Versioned `STUDY_ATTEMPT` session handling creates `CourseAttempt`/course progress and skips legacy `LessonProgress` writes. Legacy sessions retain their existing behavior.
+- `COURSE_ATTEMPT` now calls prerequisite validation inside the transaction before any attempt/progress write, so locked offline mutations are rejected atomically.
+- The public session-attempt Zod schema now accepts curriculum version, skill, exercise type, response time, hint use, error classification, and handwriting metrics. Those fields are forwarded to `recordEvidence` and persisted through the existing evidence repository mapping.
+- Added regressions for versioned-path reflection, ignored legacy progress, locked course-mutation rejection, no legacy writes for versioned session attempts, and public metadata forwarding.
