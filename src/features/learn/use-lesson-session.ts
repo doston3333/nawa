@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Ability, EvidenceEvent, SessionTask, StudySessionView } from "@/domain/learning/types";
 import type { TaskSubmission } from "@/features/study-room/task-card";
+import type { InteractiveStepSubmission } from "./interactive-lesson-step";
+import { ACTIVE_COURSE } from "@/domain/course/catalog";
 import { buildAttemptMutation, httpError, isNetworkFailure, notifyOfflineChange, readActiveProfileId } from "@/features/offline/attempt-mutation";
 import { enqueueMutation } from "@/lib/offline/outbox";
 import { getDeviceId } from "@/lib/offline/sync-client";
@@ -39,6 +41,29 @@ function buildEvidence(
   };
 }
 
+function buildInteractiveEvidence(task: SessionTask, submission: InteractiveStepSubmission, profileId: string, lessonId: string): EvidenceEvent | null {
+  const event = buildEvidence(task, {
+    answer: submission.answer,
+    helpLevel: 0,
+    attempted: true,
+    startedAt: submission.startedAt,
+    confidence: 3,
+  }, profileId);
+  const lesson = ACTIVE_COURSE.units.flatMap((unit) => unit.lessons).find((item) => item.id === lessonId);
+  if (!event || !lesson) return event;
+  return {
+    ...event,
+    correct: submission.correct,
+    responseMode: submission.responseMode,
+    curriculumVersion: ACTIVE_COURSE.version,
+    skillId: lesson.skillIds[0] ?? null,
+    exerciseType: submission.exerciseType,
+    responseTimeMs: event.latencyMs,
+    hintUsed: submission.hintUsed,
+    errorClassification: submission.errorClassification,
+  };
+}
+
 export function useLessonSession(lessonId: string) {
   const [view, setView] = useState<StudySessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +78,7 @@ export function useLessonSession(lessonId: string) {
   const [nextLessonId, setNextLessonId] = useState<string | null>(null);
   const [requestKey, setRequestKey] = useState(0);
   const [internetRequired, setInternetRequired] = useState(false);
+  const [scoredChecks, setScoredChecks] = useState({ correct: 0, total: 0 });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -115,12 +141,22 @@ export function useLessonSession(lessonId: string) {
   }, [view]);
 
   const submitAttempt = useCallback(
-    async (submission: TaskSubmission) => {
+    async (submission?: TaskSubmission | InteractiveStepSubmission) => {
       if (!view || !currentTask) return;
       setSubmitting(true);
       setError(null);
       const nextTaskIndex = view.currentTaskIndex + 1;
-      const event = buildEvidence(currentTask, submission, view.plan.profileId);
+      const interactiveSubmission = submission && "exerciseType" in submission ? submission : null;
+      const event = !submission
+        ? null
+        : interactiveSubmission
+          ? buildInteractiveEvidence(currentTask, interactiveSubmission, view.plan.profileId, lessonId)
+          : buildEvidence(currentTask, submission as TaskSubmission, view.plan.profileId);
+      const recordScoredCheck = () => {
+        if (interactiveSubmission?.exerciseType === "SCORED_TEST") {
+          setScoredChecks((current) => ({ correct: current.correct + Number(interactiveSubmission.correct), total: current.total + 1 }));
+        }
+      };
       try {
         const response = await fetch(`/api/study/sessions/${view.plan.id}/attempts`, {
           method: "POST",
@@ -143,6 +179,7 @@ export function useLessonSession(lessonId: string) {
           status: body.status ?? (nextTaskIndex >= view.plan.tasks.length ? "COMPLETE" : "ACTIVE"),
         };
         setView(nextView);
+        recordScoredCheck();
         void cacheSession(view.plan.profileId, { id: view.plan.id, ...nextView }).catch(() => undefined);
       } catch (reason) {
         if (isNetworkFailure(reason)) {
@@ -162,6 +199,7 @@ export function useLessonSession(lessonId: string) {
               status: view.currentTaskIndex + 1 >= view.plan.tasks.length ? "COMPLETE" : "ACTIVE",
             };
             setView(nextView);
+            recordScoredCheck();
             await cacheSession(view.plan.profileId, { id: view.plan.id, ...nextView });
             notifyOfflineChange();
             setError(null);
@@ -176,7 +214,7 @@ export function useLessonSession(lessonId: string) {
         setSubmitting(false);
       }
     },
-    [currentTask, view],
+    [currentTask, lessonId, view],
   );
 
   const retry = useCallback(() => {
@@ -194,6 +232,7 @@ export function useLessonSession(lessonId: string) {
     error,
     submitting,
     counts,
+    scoredChecks,
     nextLessonId,
     submitAttempt,
     retry,

@@ -118,3 +118,24 @@ it("keeps the task in place for a server validation error", async () => {
   expect(session.result.current.error).toBe("Invalid attempt payload");
   expect(await listPendingMutations(profileId)).toHaveLength(0);
 });
+
+it("submits locally evaluated course metadata and completes the final step", async () => {
+  const completed = { ...sessionView, currentTaskIndex: 1, status: "COMPLETE" as const };
+  const fetchMock = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(new Response(JSON.stringify(sessionView), { status: 201 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify(completed), { status: 200 }));
+  const session = renderHook(() => useLessonSession("rtl-baseline-lesson-1"));
+  await waitFor(() => expect(session.result.current.currentTask).not.toBeNull());
+
+  await act(async () => {
+    await session.result.current.submitAttempt({
+      answer: "ب", correct: true, errorClassification: null, hintUsed: false,
+      exerciseType: "SCORED_TEST", responseMode: "TYPE", startedAt: new Date().toISOString(),
+    });
+  });
+
+  const request = fetchMock.mock.calls[1]![1] as RequestInit;
+  const body = JSON.parse(String(request.body));
+  expect(body.event).toMatchObject({ curriculumVersion: 1, skillId: "rtl-baseline-skill-1", exerciseType: "SCORED_TEST", hintUsed: false, correct: true });
+  expect(session.result.current.view?.status).toBe("COMPLETE");
+});

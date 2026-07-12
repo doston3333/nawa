@@ -9,6 +9,8 @@ import { LessonTips } from "./lesson-tips";
 import { useLessonSession } from "./use-lesson-session";
 import { SyncStatus } from "@/features/offline/sync-status";
 import { ACTIVE_PROFILE_NAME_STORAGE_KEY } from "@/features/offline/attempt-mutation";
+import { ACTIVE_COURSE } from "@/domain/course/catalog";
+import { InteractiveLessonStep } from "./interactive-lesson-step";
 
 export function LessonRunner({ lessonId, title }: { lessonId: string; title?: string }) {
   const session = useLessonSession(lessonId);
@@ -20,6 +22,7 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
     }
   });
   const lesson = getActiveLessonById(lessonId);
+  const courseLesson = ACTIVE_COURSE.units.flatMap((unit) => unit.lessons).find((item) => item.id === lessonId);
   const tips = lesson?.tips ?? [];
   const isCheckpoint = lesson?.kind === "CHECKPOINT";
 
@@ -69,6 +72,9 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
             ? "You re-tested this unit’s forms. Production and recognition both count toward mastery."
             : "Short modular practice done. Ability evidence is saved for retrieval later."}
         </p>
+        {session.scoredChecks.total ? (
+          <p className="path-lede">Mastery summary: {session.scoredChecks.correct} of {session.scoredChecks.total} final scored checks correct.</p>
+        ) : null}
         <ProgressSummary counts={session.counts} />
         <div className="complete-actions">
           {session.nextLessonId ? (
@@ -91,7 +97,7 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
     );
   }
 
-  const total = session.view.plan.tasks.length;
+  const total = courseLesson?.steps.length ?? session.view.plan.tasks.length;
   const index = session.view.currentTaskIndex;
   const pct = Math.round(((index + 1) / total) * 100);
 
@@ -126,13 +132,22 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
         </p>
       ) : null}
 
-      <TaskCard
-        key={session.currentTask.id}
-        task={session.currentTask}
-        onSubmit={session.submitAttempt}
-        submitting={session.submitting}
-        compact
-      />
+      {courseLesson?.steps[index] ? (
+        <InteractiveLessonStep
+          key={courseLesson.steps[index].id}
+          step={courseLesson.steps[index]}
+          onAdvance={session.submitAttempt}
+          submitting={session.submitting}
+        />
+      ) : (
+        <TaskCard
+          key={session.currentTask.id}
+          task={session.currentTask}
+          onSubmit={session.submitAttempt}
+          submitting={session.submitting}
+          compact
+        />
+      )}
     </main>
   );
 }

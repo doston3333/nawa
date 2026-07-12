@@ -507,6 +507,28 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   grid-template-columns: 1fr;
 }
 
+.interactive-step {
+  max-width: 48rem;
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.interactive-step h2 { margin: 0.2rem 0 0.8rem; font-size: clamp(1.3rem, 3vw, 1.9rem); }
+.interactive-step-kicker { margin: 0; color: var(--saffron); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.interactive-step-arabic { margin: 0.75rem 0; font-family: var(--font-arabic), serif; font-size: clamp(2rem, 7vw, 3.6rem); line-height: 1.35; }
+.interactive-step-instruction, .interactive-step-rule, .interactive-step-unavailable { color: var(--ink-soft); line-height: 1.55; }
+.interactive-step-choices { display: grid; gap: 0.65rem; margin: 1rem 0; }
+.interactive-step-choices button { min-height: 44px; padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--paper); color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
+.interactive-step-choices button.is-selected { border-color: var(--focus); outline: 2px solid color-mix(in oklab, var(--focus) 30%, transparent); }
+.interactive-step-hint, .interactive-step-feedback { margin: 1rem 0; padding: 0.8rem 1rem; border-radius: var(--radius-sm); }
+.interactive-step-hint { background: color-mix(in oklab, var(--sage) 35%, var(--surface)); }
+.interactive-step-feedback.is-correct { background: color-mix(in oklab, #287448 12%, var(--surface)); border: 1px solid color-mix(in oklab, #287448 35%, var(--border)); }
+.interactive-step-feedback.is-incorrect { background: color-mix(in oklab, #8b2e2e 10%, var(--surface)); border: 1px solid color-mix(in oklab, #8b2e2e 28%, var(--border)); }
+.interactive-step-feedback p { margin: 0.35rem 0 0; }
+
 .choice-fieldset {
   margin: 0;
   padding: 0.85rem 1rem;
