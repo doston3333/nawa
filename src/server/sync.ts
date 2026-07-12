@@ -1,6 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { EvidenceEvent, SessionPlan } from "@/domain/learning/types";
-import { getLessonById } from "@/domain/curriculum/path";
+import { getHistoricalLessonById } from "@/domain/curriculum/path";
 import { db } from "@/server/db";
 import {
   advanceSessionWithinTransaction,
@@ -327,7 +327,7 @@ async function applyStudyAttempt(mutation: SyncMutationInput, tx: Prisma.Transac
 async function applyLessonProgress(mutation: SyncMutationInput, tx: Prisma.TransactionClient): Promise<unknown> {
   const payload = asRecord(mutation.payload);
   const lessonId = asString(payload.lessonId, "lessonId");
-  const lesson = getLessonById(lessonId);
+  const lesson = getHistoricalLessonById(lessonId);
   if (!lesson) throw new Error("lessonId is not a known curriculum lesson");
   const correct = payload.correct === null ? null : payload.correct;
   if (correct !== null && typeof correct !== "boolean") throw new Error("correct must be boolean or null");

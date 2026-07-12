@@ -60,5 +60,19 @@ existing lesson IDs and migration/runner behavior, which this task forbids.
 2. Green: focused catalog, type-contract, unlock, and isolation tests passed:
    4 files, 12 tests.
 3. Final verification: `pnpm typecheck` passed and `pnpm test` passed:
-   49 files, 150 tests. Node emitted only the existing localStorage
-   experimental warning.
+49 files, 150 tests. Node emitted only the existing localStorage
+experimental warning.
+
+## Critical path-source follow-up
+
+- `LESSONS`, `UNITS`, `getLessonById`, `orderedLessons`, and `nextLessonId`
+  now project `ACTIVE_COURSE` directly. The first public path lesson is
+  `rtl-baseline-lesson-1`; `script-1` is absent from the active projection.
+- The previous course rows are retained as explicitly named
+  `HISTORICAL_LESSONS`/`HISTORICAL_UNITS` and are used only by sync validation,
+  so existing persisted progress remains historical and does not re-enter the
+  active Learn route.
+- Red: the path regression test failed with `script-1` before the public
+  exports were switched. Green: focused path, tips, lesson-plan, and unlock
+  tests passed (4 files, 13 tests); `pnpm typecheck` and the full suite then
+  passed (49 files, 150 tests).

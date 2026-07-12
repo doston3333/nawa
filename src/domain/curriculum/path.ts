@@ -38,7 +38,8 @@ const scriptAtoms = [
   "letter-kaf", "letter-lam", "letter-mim", "letter-nun", "letter-ha", "letter-waw", "letter-ya", "letter-hamza",
 ];
 
-export const LESSONS: LessonDef[] = [
+/** Historical course rows retained only to validate and retain old progress/sync records. */
+export const HISTORICAL_LESSONS: LessonDef[] = [
   // Unit 1 — Script
   lesson({ id: "script-1", unitId: "script", title: "Letters 1–7", order: 1, exerciseCount: 8, atomIds: L(["letter-alif", "letter-ba", "letter-ta", "letter-tha", "letter-jim", "letter-haa", "letter-kha"]) }),
   lesson({ id: "script-2", unitId: "script", title: "Letters 8–14", order: 2, exerciseCount: 8, atomIds: L(["letter-dal", "letter-dhal", "letter-ra", "letter-zay", "letter-sin", "letter-shin", "letter-sad"]) }),
@@ -92,7 +93,7 @@ export const LESSONS: LessonDef[] = [
   checkpoint("sentences", "Sentences checkpoint", ["phrase-this-is-a-book", "phrase-where-is-the-house", "phrase-the-house-is-big", "phrase-that-is-a-school", "phrase-arabic-is-beautiful", "phrase-today-i-study"], 5),
 ];
 
-export const UNITS: UnitDef[] = [
+export const HISTORICAL_UNITS: UnitDef[] = [
   { id: "script", title: "Script", subtitle: "The Arabic letters", order: 1, lessonIds: ["script-1", "script-2", "script-3", "script-4", "script-check"] },
   { id: "greetings", title: "Greetings", subtitle: "Say hello and thank you", order: 2, lessonIds: ["greetings-1", "greetings-2", "greetings-3", "greetings-check"] },
   { id: "identity", title: "Identity", subtitle: "Pronouns and your name", order: 3, lessonIds: ["identity-1", "identity-2", "identity-3", "identity-check"] },
@@ -127,20 +128,24 @@ export const ACTIVE_LESSONS: LessonDef[] = ACTIVE_COURSE.units.flatMap((unit) =>
   })),
 );
 
-export function getLessonById(id: string): LessonDef | undefined {
-  return LESSONS.find((item) => item.id === id);
-}
+/** Compatibility surface for existing callers: it now projects the active course. */
+export const LESSONS: LessonDef[] = ACTIVE_LESSONS;
+export const UNITS: UnitDef[] = ACTIVE_UNITS;
 
-export function getActiveLessonById(id: string): LessonDef | undefined {
+export function getLessonById(id: string): LessonDef | undefined {
   return ACTIVE_LESSONS.find((item) => item.id === id);
 }
 
+export function getActiveLessonById(id: string): LessonDef | undefined {
+  return getLessonById(id);
+}
+
+export function getHistoricalLessonById(id: string): LessonDef | undefined {
+  return HISTORICAL_LESSONS.find((item) => item.id === id);
+}
+
 export function orderedLessons(): LessonDef[] {
-  return [...LESSONS].sort((a, b) => {
-    const unitA = UNITS.find((u) => u.id === a.unitId)?.order ?? 0;
-    const unitB = UNITS.find((u) => u.id === b.unitId)?.order ?? 0;
-    return unitA - unitB || a.order - b.order;
-  });
+  return orderedActiveLessons();
 }
 
 export function orderedActiveLessons(): LessonDef[] {
@@ -151,11 +156,16 @@ export function orderedActiveLessons(): LessonDef[] {
   });
 }
 
+export function orderedHistoricalLessons(): LessonDef[] {
+  return [...HISTORICAL_LESSONS].sort((a, b) => {
+    const unitA = HISTORICAL_UNITS.find((unit) => unit.id === a.unitId)?.order ?? 0;
+    const unitB = HISTORICAL_UNITS.find((unit) => unit.id === b.unitId)?.order ?? 0;
+    return unitA - unitB || a.order - b.order;
+  });
+}
+
 export function nextLessonId(currentId: string): string | null {
-  const all = orderedLessons();
-  const index = all.findIndex((item) => item.id === currentId);
-  if (index < 0 || index >= all.length - 1) return null;
-  return all[index + 1]?.id ?? null;
+  return nextActiveLessonId(currentId);
 }
 
 export function nextActiveLessonId(currentId: string): string | null {
@@ -166,9 +176,9 @@ export function nextActiveLessonId(currentId: string): string | null {
 }
 
 export function unitLessons(unitId: string): LessonDef[] {
-  return LESSONS.filter((item) => item.unitId === unitId).sort((a, b) => a.order - b.order);
+  return ACTIVE_LESSONS.filter((item) => item.unitId === unitId).sort((a, b) => a.order - b.order);
 }
 
 export function checkpointCount(): number {
-  return LESSONS.filter((item) => item.kind === "CHECKPOINT").length;
+  return ACTIVE_LESSONS.filter((item) => item.kind === "CHECKPOINT").length;
 }
