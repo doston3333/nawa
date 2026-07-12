@@ -38,16 +38,19 @@ function step(unitId: string, lessonOrder: number, stepOrder: number, arabic: st
   const scored = stepOrder >= 8;
   const kind = scored ? "SCORED_TEST" : VARIANTS[(lessonOrder + stepOrder - 2) % VARIANTS.length]!;
   const isTeaching = kind === "TEACHING";
-  return {
+  const base = {
     id,
-    kind,
     prompt: scored ? "Answer without a hint." : `Practice this MSA reading and writing pattern: ${arabic}.`,
     arabic,
-    ...(isTeaching ? {} : { exercise: exercise(`${id}-exercise`, "Choose or type the MSA answer.", arabic) }),
-    ...(kind === "HANDWRITING" ? { handwritingTemplateId: "alif-stroke" } : {}),
     ...(!scored && !isTeaching ? { hints: ["Read from right to left."] } : {}),
     scored,
   };
+  if (kind === "TEACHING") return { ...base, kind };
+  const exerciseDefinition = exercise(`${id}-exercise`, "Choose or type the MSA answer.", arabic);
+  if (kind === "HANDWRITING") {
+    return { ...base, kind, exercise: exerciseDefinition, handwritingTemplateId: "alif-stroke" };
+  }
+  return { ...base, kind, exercise: exerciseDefinition };
 }
 
 function lesson(unitId: string, order: number, skillId: string, arabic: string, kind: "LESSON" | "CHECKPOINT" = "LESSON"): LessonDefinition {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { getLessonById } from "@/domain/curriculum/path";
+import { getActiveLessonById } from "@/domain/curriculum/path";
 import { TaskCard } from "@/features/study-room/task-card";
 import { ProgressSummary } from "@/features/study-room/progress-summary";
 import { LessonTips } from "./lesson-tips";
@@ -19,7 +19,7 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
       return null;
     }
   });
-  const lesson = getLessonById(lessonId);
+  const lesson = getActiveLessonById(lessonId);
   const tips = lesson?.tips ?? [];
   const isCheckpoint = lesson?.kind === "CHECKPOINT";
 

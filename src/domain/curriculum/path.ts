@@ -1,5 +1,6 @@
+import { ACTIVE_COURSE } from "@/domain/course/catalog";
 import type { LessonDef, UnitDef } from "@/domain/learning/types";
-export { ACTIVE_COURSE } from "@/domain/course/catalog";
+export { ACTIVE_COURSE };
 import { tipsForLesson } from "./tips";
 
 const L = (ids: string[]) => ids;
@@ -102,8 +103,36 @@ export const UNITS: UnitDef[] = [
   { id: "sentences", title: "First sentences", subtitle: "Build real MSA lines", order: 8, lessonIds: ["sentences-1", "sentences-2", "sentences-3", "sentences-4", "sentences-check"] },
 ];
 
+/** Active route projection. Historical LESSONS/UNITS above remain readable for sync and old records. */
+export const ACTIVE_UNITS: UnitDef[] = ACTIVE_COURSE.units.map((unit) => ({
+  id: unit.id,
+  title: unit.title,
+  subtitle: unit.subtitle,
+  order: unit.order,
+  lessonIds: unit.lessons.map((lesson) => lesson.id),
+}));
+
+export const ACTIVE_LESSONS: LessonDef[] = ACTIVE_COURSE.units.flatMap((unit) =>
+  unit.lessons.map((lesson) => ({
+    id: lesson.id,
+    unitId: unit.id,
+    title: lesson.title,
+    order: lesson.order,
+    atomIds: lesson.skillIds.flatMap((skillId) =>
+      ACTIVE_COURSE.skills.find((skill) => skill.id === skillId)?.vocabularyAtomIds ?? [],
+    ),
+    exerciseCount: lesson.steps.length,
+    kind: lesson.kind,
+    tips: [unit.subtitle],
+  })),
+);
+
 export function getLessonById(id: string): LessonDef | undefined {
   return LESSONS.find((item) => item.id === id);
+}
+
+export function getActiveLessonById(id: string): LessonDef | undefined {
+  return ACTIVE_LESSONS.find((item) => item.id === id);
 }
 
 export function orderedLessons(): LessonDef[] {
@@ -114,8 +143,23 @@ export function orderedLessons(): LessonDef[] {
   });
 }
 
+export function orderedActiveLessons(): LessonDef[] {
+  return [...ACTIVE_LESSONS].sort((a, b) => {
+    const unitA = ACTIVE_UNITS.find((unit) => unit.id === a.unitId)?.order ?? 0;
+    const unitB = ACTIVE_UNITS.find((unit) => unit.id === b.unitId)?.order ?? 0;
+    return unitA - unitB || a.order - b.order;
+  });
+}
+
 export function nextLessonId(currentId: string): string | null {
   const all = orderedLessons();
+  const index = all.findIndex((item) => item.id === currentId);
+  if (index < 0 || index >= all.length - 1) return null;
+  return all[index + 1]?.id ?? null;
+}
+
+export function nextActiveLessonId(currentId: string): string | null {
+  const all = orderedActiveLessons();
   const index = all.findIndex((item) => item.id === currentId);
   if (index < 0 || index >= all.length - 1) return null;
   return all[index + 1]?.id ?? null;

@@ -44,16 +44,34 @@ export interface AssessmentDefinition {
   passingScore: number;
 }
 
-export interface LessonStep {
+interface LessonStepBase {
   id: string;
-  kind: StepKind;
   prompt: string;
   arabic?: string;
-  exercise?: ExerciseDefinition;
-  handwritingTemplateId?: string;
   hints?: readonly string[];
   scored: boolean;
 }
+
+export interface TeachingStep extends LessonStepBase {
+  kind: "TEACHING";
+  exercise?: never;
+  handwritingTemplateId?: never;
+}
+
+export interface HandwritingStep extends LessonStepBase {
+  kind: "HANDWRITING";
+  exercise: ExerciseDefinition;
+  handwritingTemplateId: string;
+}
+
+export interface ExerciseStep extends LessonStepBase {
+  kind: Exclude<StepKind, "TEACHING" | "HANDWRITING">;
+  exercise: ExerciseDefinition;
+  handwritingTemplateId?: never;
+}
+
+/** A discriminated union makes each interaction's required payload explicit. */
+export type LessonStep = TeachingStep | HandwritingStep | ExerciseStep;
 
 export interface LessonDefinition {
   id: string;

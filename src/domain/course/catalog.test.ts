@@ -36,3 +36,24 @@ it("rejects a catalog whose prerequisite points forward", () => {
     "prerequisite must come first",
   );
 });
+
+it("rejects missing or duplicated checkpoint assessment exercises", () => {
+  const missing = structuredClone(ACTIVE_COURSE);
+  missing.units[0]!.lessons[8]!.assessment!.exerciseIds = ["not-a-step-exercise-1", "not-a-step-exercise-2", "not-a-step-exercise-3"];
+  expect(() => validateCourseCatalog(missing)).toThrow("references an unknown exercise");
+
+  const duplicate = structuredClone(ACTIVE_COURSE);
+  const exerciseId = duplicate.units[0]!.lessons[8]!.assessment!.exerciseIds[0]!;
+  duplicate.units[0]!.lessons[8]!.assessment!.exerciseIds = [exerciseId, exerciseId, exerciseId];
+  expect(() => validateCourseCatalog(duplicate)).toThrow("duplicate exercise");
+});
+
+it("rejects duplicate or out-of-order unit and lesson orders", () => {
+  const duplicateUnit = structuredClone(ACTIVE_COURSE);
+  duplicateUnit.units[1]!.order = duplicateUnit.units[0]!.order;
+  expect(() => validateCourseCatalog(duplicateUnit)).toThrow("duplicate unit order");
+
+  const unorderedLesson = structuredClone(ACTIVE_COURSE);
+  unorderedLesson.units[0]!.lessons[1]!.order = 0;
+  expect(() => validateCourseCatalog(unorderedLesson)).toThrow("lesson order must be strictly increasing");
+});

@@ -7,7 +7,7 @@ import type {
   StudySessionView,
 } from "@/domain/learning/types";
 import { BEGINNER_ATOMS } from "@/domain/curriculum/seed";
-import { getLessonById, nextLessonId } from "@/domain/curriculum/path";
+import { getActiveLessonById, nextActiveLessonId } from "@/domain/curriculum/path";
 import { buildLessonPlan } from "@/domain/lessons/build-lesson-plan";
 import { buildLearnPathView, isLessonComplete } from "@/domain/lessons/unlock";
 import { db } from "@/server/db";
@@ -36,7 +36,7 @@ export async function startLessonSession(input: {
   now: string;
 }): Promise<StudySessionView> {
   await ensureProfile(input.profileId);
-  const lesson = getLessonById(input.lessonId);
+  const lesson = getActiveLessonById(input.lessonId);
   if (!lesson) throw new Error("Lesson not found");
 
   const path = await getLearnPath(input.profileId);
@@ -161,7 +161,7 @@ export async function completeLessonAfterSessionWithinTransaction(
       completedAt: new Date(),
     },
   });
-  return { completed: true, nextLessonId: nextLessonId(input.lessonId), passed };
+  return { completed: true, nextLessonId: nextActiveLessonId(input.lessonId), passed };
 }
 
 export async function maybeCompleteLesson(input: {
@@ -176,7 +176,7 @@ export async function maybeCompleteLesson(input: {
   if (!row) return { completed: false, nextLessonId: null };
 
   if (row.status === "COMPLETE") {
-    return { completed: true, nextLessonId: nextLessonId(input.lessonId) };
+    return { completed: true, nextLessonId: nextActiveLessonId(input.lessonId) };
   }
 
   if (!isLessonComplete(row.scoreCorrect, row.scoreTotal)) {
@@ -194,7 +194,7 @@ export async function maybeCompleteLesson(input: {
       completedAt: new Date(),
     },
   });
-  return { completed: true, nextLessonId: nextLessonId(input.lessonId) };
+  return { completed: true, nextLessonId: nextActiveLessonId(input.lessonId) };
 }
 
 /** Force-complete when learner finished all exercises even if score is low — still unlocks path for demo UX. */

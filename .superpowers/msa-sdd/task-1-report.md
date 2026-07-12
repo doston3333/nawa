@@ -36,3 +36,29 @@
 None. The active versioned catalog is intentionally exposed independently of
 the legacy path projection: replacing historical `LESSONS` rows would change
 existing lesson IDs and migration/runner behavior, which this task forbids.
+
+## Review follow-up
+
+- The active Learn route now projects `ACTIVE_COURSE` through `ACTIVE_UNITS`
+  and `ACTIVE_LESSONS`. `buildLearnPathView`, lesson start/completion, the
+  route page, and the lesson runner use those active projections. Legacy
+  `LESSONS`/`UNITS` and `getLessonById` remain for historical progress and sync
+  validation, so old IDs are not presented as the current course path.
+- `LessonStep` is now a discriminated union. Teaching steps cannot carry an
+  exercise/template, handwriting requires both an exercise and template, and
+  all other interactive variants require an exercise. The compile-time contract
+  test uses expected type errors to verify these constraints.
+- Validation now checks strict unique unit/lesson ordering, policy-specific
+  answer schemas, and that checkpoint assessment exercise IDs are unique and
+  belong to their checkpoint lesson.
+
+### Review red-green evidence
+
+1. Red: focused catalog/unlock tests failed while the Learn path still began at
+   `script-1`; `pnpm typecheck` also failed with unused `@ts-expect-error`
+   directives because malformed handwriting/typing steps were accepted.
+2. Green: focused catalog, type-contract, unlock, and isolation tests passed:
+   4 files, 12 tests.
+3. Final verification: `pnpm typecheck` passed and `pnpm test` passed:
+   49 files, 150 tests. Node emitted only the existing localStorage
+   experimental warning.

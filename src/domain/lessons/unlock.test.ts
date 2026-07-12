@@ -1,10 +1,10 @@
 import { buildLearnPathView, isLessonComplete, previousLessonId } from "./unlock";
-import { orderedLessons } from "@/domain/curriculum/path";
+import { ACTIVE_LESSONS, orderedActiveLessons } from "@/domain/curriculum/path";
 
 describe("lesson unlock chain", () => {
   it("opens only the first lesson with empty progress", () => {
     const path = buildLearnPathView([]);
-    expect(path.nextLessonId).toBe("script-1");
+    expect(path.nextLessonId).toBe("rtl-baseline-lesson-1");
     expect(path.units[0]?.lessons[0]?.status).toBe("AVAILABLE");
     expect(path.units[0]?.lessons[1]?.status).toBe("LOCKED");
     expect(path.units[1]?.lessons[0]?.status).toBe("LOCKED");
@@ -13,7 +13,7 @@ describe("lesson unlock chain", () => {
   it("unlocks the next lesson after complete", () => {
     const path = buildLearnPathView([
       {
-        lessonId: "script-1",
+        lessonId: "rtl-baseline-lesson-1",
         status: "COMPLETE",
         scoreCorrect: 7,
         scoreTotal: 8,
@@ -22,12 +22,12 @@ describe("lesson unlock chain", () => {
     ]);
     expect(path.units[0]?.lessons[0]?.status).toBe("COMPLETE");
     expect(path.units[0]?.lessons[1]?.status).toBe("AVAILABLE");
-    expect(path.nextLessonId).toBe("script-2");
+    expect(path.nextLessonId).toBe("rtl-baseline-lesson-2");
   });
 
   it("unlocks the unit checkpoint after all regular unit lessons", () => {
-    const scriptLessons = orderedLessons().filter((l) => l.unitId === "script" && l.kind !== "CHECKPOINT");
-    const progress = scriptLessons.map((lesson) => ({
+    const activeLessons = orderedActiveLessons().filter((lesson) => lesson.unitId === "rtl-baseline" && lesson.kind !== "CHECKPOINT");
+    const progress = activeLessons.map((lesson) => ({
       lessonId: lesson.id,
       status: "COMPLETE" as const,
       scoreCorrect: 8,
@@ -35,17 +35,17 @@ describe("lesson unlock chain", () => {
       completedAt: "2026-07-12T00:00:00.000Z",
     }));
     const path = buildLearnPathView(progress);
-    const check = path.units[0]?.lessons.find((l) => l.id === "script-check");
+    const check = path.units[0]?.lessons.find((l) => l.id === "rtl-baseline-checkpoint");
     expect(check?.kind ?? "CHECKPOINT").toBeDefined();
     expect(check?.status).toBe("AVAILABLE");
-    expect(path.nextLessonId).toBe("script-check");
+    expect(path.nextLessonId).toBe("rtl-baseline-checkpoint");
   });
 
   it("orders previous lesson across units including checkpoints", () => {
-    expect(previousLessonId("script-1")).toBeNull();
-    expect(previousLessonId("greetings-1")).toBe("script-check");
-    expect(orderedLessons().length).toBeGreaterThanOrEqual(32);
-    expect(orderedLessons().filter((l) => l.kind === "CHECKPOINT").length).toBe(8);
+    expect(previousLessonId("rtl-baseline-lesson-1")).toBeNull();
+    expect(previousLessonId("letter-families-i-lesson-1")).toBe("rtl-baseline-checkpoint");
+    expect(ACTIVE_LESSONS).toHaveLength(72);
+    expect(orderedActiveLessons().filter((lesson) => lesson.kind === "CHECKPOINT")).toHaveLength(8);
   });
 
   it("requires 60% for completion threshold", () => {

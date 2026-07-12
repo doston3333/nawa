@@ -61,7 +61,7 @@ it("keeps concurrent visitors on isolated study sessions", async () => {
 
 it("keeps lesson path progress and profile identity isolated", async () => {
   await db.lessonProgress.create({
-    data: { profileId: profileA, lessonId: "script-1", status: "IN_PROGRESS" },
+    data: { profileId: profileA, lessonId: "rtl-baseline-lesson-1", status: "IN_PROGRESS" },
   });
 
   const [pathA, pathB, profiles] = await Promise.all([
@@ -69,8 +69,8 @@ it("keeps lesson path progress and profile identity isolated", async () => {
     getLearnPath(profileB),
     db.profile.findMany({ where: { id: { in: [profileA, profileB] } }, orderBy: { name: "asc" } }),
   ]);
-  const lessonA = pathA.units.flatMap((unit) => unit.lessons).find((lesson) => lesson.id === "script-1");
-  const lessonB = pathB.units.flatMap((unit) => unit.lessons).find((lesson) => lesson.id === "script-1");
+  const lessonA = pathA.units.flatMap((unit) => unit.lessons).find((lesson) => lesson.id === "rtl-baseline-lesson-1");
+  const lessonB = pathB.units.flatMap((unit) => unit.lessons).find((lesson) => lesson.id === "rtl-baseline-lesson-1");
 
   expect(profiles.map((profile) => profile.name)).toEqual(["Amina isolation", "Omar isolation"]);
   expect(lessonA?.status).toBe("IN_PROGRESS");

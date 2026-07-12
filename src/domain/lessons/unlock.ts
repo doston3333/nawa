@@ -7,9 +7,9 @@ import type {
   PathUnitView,
   UnitDef,
 } from "@/domain/learning/types";
-import { LESSONS, UNITS, orderedLessons } from "@/domain/curriculum/path";
+import { ACTIVE_LESSONS, ACTIVE_UNITS, orderedActiveLessons } from "@/domain/curriculum/path";
 
-export function previousLessonId(lessonId: string, lessons: LessonDef[] = orderedLessons()): string | null {
+export function previousLessonId(lessonId: string, lessons: LessonDef[] = orderedActiveLessons()): string | null {
   const index = lessons.findIndex((lesson) => lesson.id === lessonId);
   if (index <= 0) return null;
   return lessons[index - 1]?.id ?? null;
@@ -18,7 +18,7 @@ export function previousLessonId(lessonId: string, lessons: LessonDef[] = ordere
 export function deriveLessonStatus(
   lessonId: string,
   progressById: Map<string, LessonProgressRecord>,
-  lessons: LessonDef[] = orderedLessons(),
+  lessons: LessonDef[] = orderedActiveLessons(),
 ): LessonNodeStatus {
   const record = progressById.get(lessonId);
   if (record?.status === "COMPLETE") return "COMPLETE";
@@ -34,11 +34,15 @@ export function deriveLessonStatus(
 
 export function buildLearnPathView(
   progress: LessonProgressRecord[],
-  units: UnitDef[] = UNITS,
-  lessons: LessonDef[] = LESSONS,
+  units: UnitDef[] = ACTIVE_UNITS,
+  lessons: LessonDef[] = ACTIVE_LESSONS,
 ): LearnPathView {
   const progressById = new Map(progress.map((item) => [item.lessonId, item]));
-  const ordered = orderedLessons();
+  const ordered = [...lessons].sort((a, b) => {
+    const unitA = units.find((unit) => unit.id === a.unitId)?.order ?? 0;
+    const unitB = units.find((unit) => unit.id === b.unitId)?.order ?? 0;
+    return unitA - unitB || a.order - b.order;
+  });
 
   const unitViews: PathUnitView[] = [...units]
     .sort((a, b) => a.order - b.order)
