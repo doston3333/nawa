@@ -1,28 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
-import { profileExists } from "@/server/profile";
+import {
+  LEARNER_COOKIE as PROFILE_LEARNER_COOKIE,
+  PROFILE_COOKIE as PROFILE_SELECTION_COOKIE,
+  PROFILE_SELECTION_REQUIRED,
+  ProfileSelectionRequiredError,
+  isProfileId,
+  profileExists,
+  resolveProfileId,
+} from "@/server/profile";
 import { ensureProfile } from "@/server/repositories/study-repository";
 
-export const PROFILE_COOKIE = "nawa_profile_id";
+export const PROFILE_COOKIE = PROFILE_SELECTION_COOKIE;
 /** Historical cookie name retained so migrated anonymous progress stays reachable. */
-export const LEARNER_COOKIE = "nawa_learner_id";
-export const PROFILE_SELECTION_REQUIRED = "PROFILE_SELECTION_REQUIRED" as const;
-
-export class ProfileSelectionRequiredError extends Error {
-  readonly code = PROFILE_SELECTION_REQUIRED;
-
-  constructor() {
-    super("Profile selection required");
-    this.name = "ProfileSelectionRequiredError";
-  }
-}
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isProfileId(value: string | undefined | null): value is string {
-  return typeof value === "string" && UUID_RE.test(value);
-}
+export const LEARNER_COOKIE = PROFILE_LEARNER_COOKIE;
+export { PROFILE_SELECTION_REQUIRED, ProfileSelectionRequiredError };
 
 export function isPublicDemoEnabled(): boolean {
   return process.env.ENABLE_PUBLIC_DEMO === "true" || process.env.ENABLE_DEMO_LEARNER === "true";
@@ -40,9 +32,12 @@ function setProfileCookie(jar: Awaited<ReturnType<typeof cookies>>, profileId: s
 
 /**
  * Resolve an isolated public demo profile for this browser.
- * Existing profile and legacy learner cookies are migrated in place so sessions never collide.
+ *
+ * This is retained only for explicitly enabled legacy demo callers. Active
+ * learning routes use the strict `resolvePublicLearnerId` compatibility alias
+ * below, which never creates a profile implicitly.
  */
-export async function resolvePublicProfileId(): Promise<string> {
+export async function resolveLegacyPublicDemoProfileId(): Promise<string> {
   if (!isPublicDemoEnabled()) {
     throw new Error("Public demo mode is disabled; Plan 2 account authentication is required");
   }
@@ -74,6 +69,9 @@ export async function resolvePublicProfileId(): Promise<string> {
   return profileId;
 }
 
+/** @deprecated Use resolveLegacyPublicDemoProfileId only for legacy demo tooling. */
+export const resolvePublicProfileId = resolveLegacyPublicDemoProfileId;
+
 /** Test and script helper: create a fresh profile without cookies. */
 export async function createEphemeralProfileId(): Promise<string> {
   const profileId = randomUUID();
@@ -81,7 +79,8 @@ export async function createEphemeralProfileId(): Promise<string> {
   return profileId;
 }
 
-/** Backwards-compatible aliases for existing demo callers. */
+/** Backwards-compatible aliases for existing callers. */
 export const isLearnerId = isProfileId;
-export const resolvePublicLearnerId = resolvePublicProfileId;
+/** Strict profile-selection compatibility alias; never creates a random profile. */
+export const resolvePublicLearnerId = resolveProfileId;
 export const createEphemeralLearnerId = createEphemeralProfileId;

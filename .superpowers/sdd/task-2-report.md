@@ -13,7 +13,7 @@ Implemented and committed as `d2fdc34 feat: add passwordless profile selection`.
 - Added the accessible client profile picker with keyboard-native buttons/forms, profile creation, server selection, navigation to `/`, refresh, and an explicit no-password privacy note.
 - Added `/profiles` as a dynamic server route.
 - Gated `/learn` and `/study` with a redirect to `/profiles` when no known profile is selected.
-- Preserved the existing public-learner compatibility boundary and its tests.
+- Preserved the compatibility boundary with `resolvePublicLearnerId` as a strict alias to `resolveProfileId`; any random-profile behavior is isolated to the explicitly named legacy `resolveLegacyPublicDemoProfileId` helper.
 - Added profile picker tests for rendering/privacy, selection, and create-then-select behavior.
 
 ## Verification
@@ -41,7 +41,7 @@ Next.js production build passed; routes compiled, including dynamic `/profiles`,
 
 ## Concerns / follow-up
 
-- Existing public API route callers still import `resolvePublicProfileId`; the strict resolver is used by the page gates. A later migration can move those callers to `resolveProfileId` once their route tests are updated.
+- All active learning/study API routes now import `resolveProfileId`; `src/server/demo-learner.ts` remains a deprecated strict alias for older imports and cannot create a profile implicitly.
 - The root landing page remains a public informational shell and exposes a “Switch profile” link; `/learn` and `/study` are the enforced profile-gated learning surfaces.
 - The implementation intentionally does not add authentication or a distributed session/rate-limit service, matching the 2–3-person private-use scope.
 
@@ -55,17 +55,19 @@ The follow-up review findings are resolved in the working tree:
 - `createProfile()` now owns the 80-character maximum validation; the profile route preserves `400` for validation and returns `503` for storage failures.
 - Profile selection now distinguishes unknown profile (`400`) from persistence failure (`503`). Profile listing also returns `503` on storage failure.
 - Added regression tests for API `201`/`400` validation, profile cookie flags and 400-day max age, keyboard Enter activation, strict no-cookie/unknown-cookie route behavior, and database `5xx` responses.
+- Added dedicated `/api/study/reset` and `/api/learn/lessons/[lessonId]/start` tests for selection-required and database `5xx` behavior.
+- Updated `src/server/public-learner.test.ts` to verify the strict compatibility alias separately from the explicitly named legacy demo helper.
 
 ## Review-fix verification (exact outputs)
 
 ```text
-$ pnpm vitest run src/app/api/profiles/route.test.ts src/app/api/profile/select/route.test.ts src/app/api/learn/path/route.test.ts src/app/api/study/sessions/route.test.ts src/app/api/study/sessions/[sessionId]/attempts/route.test.ts src/features/profile/profile-picker.test.tsx src/server/profile-cookie.test.ts src/server/profile.test.ts
-Test Files  8 passed (8)
-Tests       23 passed (23)
+$ pnpm vitest run src/server/public-learner.test.ts src/app/api/study/reset/route.test.ts src/app/api/learn/lessons/[lessonId]/start/route.test.ts
+Test Files  3 passed (3)
+Tests       9 passed (9)
 
 $ pnpm test
-Test Files  28 passed (28)
-Tests       69 passed (69)
+Test Files  30 passed (30)
+Tests       74 passed (74)
 
 $ pnpm typecheck
 tsc --noEmit (passed; no output)
