@@ -1,38 +1,38 @@
 /**
- * Gating isolation probe: two real learners, independent session plans.
+ * Gating isolation probe: two real profiles, independent session plans.
  * Run: pnpm exec tsx scripts/verify-isolation.mts
  */
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import {
   advanceSession,
-  ensureLearner,
+  ensureProfile,
   startOrResumeSession,
 } from "../src/server/repositories/study-repository";
 import { db } from "../src/server/db";
 
-const learnerA = randomUUID();
-const learnerB = randomUUID();
+const profileA = randomUUID();
+const profileB = randomUUID();
 
 async function main() {
-  await ensureLearner(learnerA);
-  await ensureLearner(learnerB);
+  await ensureProfile(profileA);
+  await ensureProfile(profileB);
 
   const a1 = await startOrResumeSession({
-    learnerId: learnerA,
+    profileId: profileA,
     durationMinutes: 30,
     now: new Date().toISOString(),
   });
-  await advanceSession(a1.plan.id, 2, learnerA);
+  await advanceSession(a1.plan.id, 2, profileA);
 
   const b1 = await startOrResumeSession({
-    learnerId: learnerB,
+    profileId: profileB,
     durationMinutes: 30,
     now: new Date().toISOString(),
   });
 
   const a2 = await startOrResumeSession({
-    learnerId: learnerA,
+    profileId: profileA,
     durationMinutes: 30,
     now: new Date().toISOString(),
   });
@@ -42,15 +42,15 @@ async function main() {
     b1.currentTaskIndex === 0 &&
     a2.plan.id === a1.plan.id &&
     a2.currentTaskIndex === 2 &&
-    a1.plan.learnerId === learnerA &&
-    b1.plan.learnerId === learnerB;
+    a1.plan.profileId === profileA &&
+    b1.plan.profileId === profileB;
 
   console.log(
     JSON.stringify(
       {
         ok,
-        learnerA,
-        learnerB,
+        profileA,
+        profileB,
         aSession: a1.plan.id,
         bSession: b1.plan.id,
         aTaskIndex: a2.currentTaskIndex,
@@ -62,11 +62,11 @@ async function main() {
     ),
   );
 
-  for (const learnerId of [learnerA, learnerB]) {
-    await db.evidenceEvent.deleteMany({ where: { learnerId } });
-    await db.studySession.deleteMany({ where: { learnerId } });
-    await db.masterySnapshot.deleteMany({ where: { learnerId } });
-    await db.learner.deleteMany({ where: { id: learnerId } });
+  for (const profileId of [profileA, profileB]) {
+    await db.evidenceEvent.deleteMany({ where: { profileId } });
+    await db.studySession.deleteMany({ where: { profileId } });
+    await db.masterySnapshot.deleteMany({ where: { profileId } });
+    await db.profile.deleteMany({ where: { id: profileId } });
   }
   await db.$disconnect();
   if (!ok) process.exit(1);

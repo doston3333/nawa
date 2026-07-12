@@ -36,3 +36,61 @@ Commands run:
 ## Commit
 
 Implementation commit: `eb7d90a feat: add profile ownership and sync ledger`
+
+## Review fixes (2026-07-12)
+
+The Task 1 review findings are resolved:
+
+- `resolvePublicProfileId()` now checks the historical `nawa_learner_id` (`LEARNER_COOKIE`) before issuing a new profile cookie, then promotes that UUID to `nawa_profile_id` without changing ownership IDs. The learner helper aliases remain available for existing callers.
+- `scripts/verify-isolation.mts` now uses `ensureProfile`, `profileId`, `plan.profileId`, and `db.profile` cleanup throughout.
+- `recordMutation()` now returns an existing row only when both `profileId` and `deviceId` match. Replays from another profile or device throw `Mutation ID already belongs to another profile or device`, including a concurrent unique-ID race.
+- `createProfile()` trims names and rejects blank input with `Profile name is required`; it no longer silently creates a generic profile.
+- Added regression coverage for legacy-cookie promotion, mutation ownership mismatch, and blank names.
+- `git diff --check` reports no whitespace errors.
+
+## Review-fix verification (exact output)
+
+```text
+$ pnpm vitest run src/server/profile.test.ts tests/integration/public-isolation.test.ts
+
+ RUN  v4.1.10 /Users/doston/Downloads/nawa
+
+ Test Files  2 passed (2)
+      Tests  5 passed (5)
+   Start at  10:20:49
+   Duration  819ms (transform 135ms, setup 93ms, import 209ms, tests 406ms, environment 570ms)
+
+$ pnpm exec tsx scripts/verify-isolation.mts
+{
+  "ok": true,
+  "profileA": "2a19af8c-2310-4f85-92cf-258fd2273ce4",
+  "profileB": "80ac41d3-56bd-47f1-973f-c78c7a5b1a33",
+  "aSession": "d0983a8e-b726-4ed0-b204-1b24fbf1af42",
+  "bSession": "fa625862-2750-43bc-b4b7-3f49d7d9d18e",
+  "aTaskIndex": 2,
+  "bTaskIndex": 0,
+  "stagesA": [
+    "ARRIVAL",
+    "RETRIEVAL",
+    "NEW_CONCEPT",
+    "INPUT",
+    "OUTPUT",
+    "CLOSE"
+  ]
+}
+
+$ pnpm typecheck
+
+> nawa@0.1.0 typecheck /Users/doston/Downloads/nawa
+> tsc --noEmit
+
+$ pnpm lint
+
+> nawa@0.1.0 lint /Users/doston/Downloads/nawa
+> eslint .
+
+$ git diff --check
+(no output; exit 0)
+```
+
+Fixes commit: `fcebd8d fix: close Task 1 profile review findings`.

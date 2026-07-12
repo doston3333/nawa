@@ -55,5 +55,25 @@ describe("profile ownership and sync ledger", () => {
     await recordMutation(mutation);
     expect(await countMutations(mutation.mutationId)).toBe(1);
   });
-});
 
+  it("rejects a replayed mutation id from another profile or device", async () => {
+    const mutationId = randomUUID();
+    const first = {
+      mutationId,
+      profileId: createdProfileIds[0]!,
+      deviceId: randomUUID(),
+    };
+    await recordMutation(first);
+
+    await expect(
+      recordMutation({ ...first, profileId: createdProfileIds[1]! }),
+    ).rejects.toThrow("Mutation ID already belongs to another profile or device");
+    await expect(recordMutation({ ...first, deviceId: randomUUID() })).rejects.toThrow(
+      "Mutation ID already belongs to another profile or device",
+    );
+  });
+
+  it("rejects blank profile names", async () => {
+    await expect(createProfile("   ")).rejects.toThrow("Profile name is required");
+  });
+});
