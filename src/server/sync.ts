@@ -12,9 +12,10 @@ import {
   completeLessonAfterSessionWithinTransaction,
   recordLessonAttemptScoreWithinTransaction,
 } from "@/server/repositories/lesson-repository";
+import { recordCourseAttemptWithinTransaction, validateActiveCourseLesson } from "@/server/repositories/course-repository";
 import { stableSerialize } from "@/lib/offline/mutation-identity";
 
-export type SyncMutationKind = "STUDY_ATTEMPT" | "LESSON_PROGRESS";
+export type SyncMutationKind = "STUDY_ATTEMPT" | "LESSON_PROGRESS" | "COURSE_ATTEMPT";
 
 export interface SyncMutationInput {
   mutationId: string;
@@ -107,10 +108,23 @@ function asNonNegativeInt(value: unknown, name: string): number {
   return value;
 }
 
+function asBoolean(value: unknown, name: string): boolean {
+  if (typeof value !== "boolean") throw new Error(`${name} must be boolean`);
+  return value;
+}
+
+function asOptionalString(value: unknown, name: string): string | null {
+  if (value === undefined || value === null) return null;
+  return asString(value, name);
+}
+
 function entityForMutation(mutation: SyncMutationInput): { entityType: string; entityId: string } {
   const payload = asRecord(mutation.payload);
   if (mutation.kind === "STUDY_ATTEMPT") {
     return { entityType: "STUDY_SESSION", entityId: asString(payload.sessionId, "sessionId") };
+  }
+  if (mutation.kind === "COURSE_ATTEMPT") {
+    return { entityType: "COURSE_ATTEMPT", entityId: `${mutation.profileId}:${asString(payload.courseId, "courseId")}:${asNonNegativeInt(payload.curriculumVersion, "curriculumVersion")}:${asString(payload.skillId, "skillId")}` };
   }
   return {
     entityType: "LESSON_PROGRESS",
@@ -241,6 +255,8 @@ async function applyMutationWithinTransaction(
     result = await applyStudyAttempt(mutation, tx);
   } else if (mutation.kind === "LESSON_PROGRESS") {
     result = await applyLessonProgress(mutation, tx);
+  } else if (mutation.kind === "COURSE_ATTEMPT") {
+    result = await applyCourseAttempt(mutation, tx);
   } else {
     throw new Error("Unsupported mutation kind");
   }
@@ -269,6 +285,38 @@ async function applyMutationWithinTransaction(
     },
   });
   return { mutationId: mutation.mutationId, status: "ACKNOWLEDGED", result } satisfies Ack;
+}
+
+async function applyCourseAttempt(mutation: SyncMutationInput, tx: Prisma.TransactionClient): Promise<unknown> {
+  const payload = asRecord(mutation.payload);
+  const courseId = asString(payload.courseId, "courseId");
+  const curriculumVersion = asNonNegativeInt(payload.curriculumVersion, "curriculumVersion");
+  const lessonId = asString(payload.lessonId, "lessonId");
+  const skillId = asString(payload.skillId, "skillId");
+  const exerciseType = asString(payload.exerciseType, "exerciseType");
+  const lesson = validateActiveCourseLesson(courseId, curriculumVersion, lessonId);
+  if (!lesson.steps.some((step) => step.kind === exerciseType)) throw new Error("exerciseType is not part of the lesson");
+  const occurredAt = payload.occurredAt === undefined ? mutation.createdAt : asString(payload.occurredAt, "occurredAt");
+  if (Number.isNaN(Date.parse(occurredAt))) throw new Error("occurredAt must be a valid ISO date");
+  const handwritingMetrics = payload.handwritingMetrics;
+  if (handwritingMetrics !== undefined && (handwritingMetrics === null || typeof handwritingMetrics !== "object" || Array.isArray(handwritingMetrics))) {
+    throw new Error("handwritingMetrics must be an object");
+  }
+  return recordCourseAttemptWithinTransaction({
+    id: mutation.mutationId,
+    profileId: mutation.profileId,
+    courseId,
+    curriculumVersion,
+    lessonId,
+    skillId,
+    exerciseType,
+    correct: asBoolean(payload.correct, "correct"),
+    responseTimeMs: asNonNegativeInt(payload.responseTimeMs, "responseTimeMs"),
+    hintUsed: payload.hintUsed === undefined ? false : asBoolean(payload.hintUsed, "hintUsed"),
+    errorClassification: asOptionalString(payload.errorClassification, "errorClassification"),
+    handwritingMetrics,
+    occurredAt,
+  }, tx);
 }
 
 async function applyStudyAttempt(mutation: SyncMutationInput, tx: Prisma.TransactionClient): Promise<unknown> {

@@ -159,6 +159,9 @@ export async function recordEvidenceWithinTransaction(
         sessionId: input.sessionId,
         taskId: input.taskId,
         occurredAt: new Date(input.event.occurredAt),
+        handwritingMetrics: input.event.handwritingMetrics === null
+          ? Prisma.JsonNull
+          : input.event.handwritingMetrics as Prisma.InputJsonValue | undefined,
       },
     });
   await tx.masterySnapshot.upsert({

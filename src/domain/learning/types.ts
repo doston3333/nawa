@@ -32,6 +32,14 @@ export interface EvidenceEvent {
   confidence: 1 | 2 | 3 | 4 | 5;
   novelContext: boolean;
   analysisConfidence: number | null;
+  /** Optional versioned-course context; absent on preserved legacy evidence. */
+  curriculumVersion?: number | null;
+  skillId?: string | null;
+  exerciseType?: string | null;
+  responseTimeMs?: number | null;
+  hintUsed?: boolean | null;
+  errorClassification?: string | null;
+  handwritingMetrics?: Record<string, unknown> | null;
 }
 
 export interface MasterySnapshot {

@@ -44,6 +44,10 @@ model Profile {
   devices   Device[]
   mutations SyncMutation[]
   changes   SyncChange[]
+  courseEnrollments CourseEnrollment[]
+  courseSkills      CourseSkillProgress[]
+  courseReviews     CourseReview[]
+  courseAttempts    CourseAttempt[]
 }
 
 model KnowledgeAtomRecord {
@@ -81,6 +85,13 @@ model EvidenceEvent {
   confidence         Int
   novelContext       Boolean
   analysisConfidence Float?
+  curriculumVersion  Int?
+  skillId            String?
+  exerciseType       String?
+  responseTimeMs     Int?
+  hintUsed           Boolean?
+  errorClassification String?
+  handwritingMetrics Json?
   profile            Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
   session            StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -96,10 +107,14 @@ model StudySession {
   status           SessionStatus   @default(ACTIVE)
   startedAt        DateTime
   updatedAt        DateTime        @updatedAt
+  courseId         String?
+  curriculumVersion Int?
+  lessonId         String?
   profile          Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
   evidence         EvidenceEvent[]
 
   @@index([profileId, status, updatedAt])
+  @@index([profileId, courseId, curriculumVersion, lessonId, status])
 }
 
 model LessonProgress {
@@ -155,4 +170,63 @@ model SyncChange {
   @@index([profileId, id])
   @@index([profileId, entityType, entityId, revision])
   @@unique([profileId, entityType, entityId, revision])
+}
+
+model CourseEnrollment {
+  profileId          String   @db.Uuid
+  courseId           String
+  curriculumVersion  Int
+  enrolledAt         DateTime @default(now())
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, courseId, curriculumVersion])
+}
+
+model CourseSkillProgress {
+  profileId          String   @db.Uuid
+  courseId           String
+  curriculumVersion  Int
+  skillId            String
+  attemptCount       Int      @default(0)
+  correctCount       Int      @default(0)
+  status             String   @default("AVAILABLE")
+  masteredAt         DateTime?
+  updatedAt          DateTime @updatedAt
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, courseId, curriculumVersion, skillId])
+  @@index([profileId, courseId, curriculumVersion, status])
+}
+
+model CourseReview {
+  profileId          String   @db.Uuid
+  courseId           String
+  curriculumVersion  Int
+  skillId            String
+  dueAt              DateTime
+  lastReviewedAt     DateTime?
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, courseId, curriculumVersion, skillId])
+  @@index([profileId, dueAt])
+}
+
+model CourseAttempt {
+  id                  String   @id @db.Uuid
+  profileId           String   @db.Uuid
+  courseId            String
+  curriculumVersion   Int
+  lessonId            String
+  skillId             String
+  exerciseType        String
+  correct             Boolean
+  responseTimeMs      Int
+  hintUsed            Boolean @default(false)
+  errorClassification String?
+  handwritingMetrics  Json?
+  occurredAt          DateTime
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, courseId, curriculumVersion, skillId, occurredAt])
+  @@index([profileId, courseId, curriculumVersion, lessonId])
 }

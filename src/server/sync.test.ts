@@ -51,6 +51,26 @@ afterAll(async () => {
 });
 
 describe("idempotent synchronization", () => {
+  it("projects a course attempt once when its stable mutation is replayed", async () => {
+    const lessonId = "rtl-baseline-lesson-1";
+    const skillId = "rtl-baseline-skill-1";
+    const mutation: SyncMutationInput = {
+      mutationId: randomUUID(), profileId, deviceId, kind: "COURSE_ATTEMPT", baseRevision: null,
+      createdAt: "2026-07-12T00:00:00.000Z",
+      payload: {
+        courseId: "pre-a1-v1", curriculumVersion: 1, lessonId, skillId,
+        exerciseType: "MATCHING", correct: true, responseTimeMs: 350, hintUsed: false,
+      },
+    };
+    const first = await pushMutations({ profileId, deviceId, mutations: [mutation] });
+    const second = await pushMutations({ profileId, deviceId, mutations: [mutation] });
+    expect(first.acknowledgements[0]).toMatchObject({ status: "ACKNOWLEDGED", result: { lessonId, skillId, exerciseType: "MATCHING" } });
+    expect(second.acknowledgements[0]?.status).toBe("ACKNOWLEDGED");
+    expect(await db.courseAttempt.count({ where: { profileId, lessonId, skillId } })).toBe(1);
+    const change = await db.syncChange.findFirst({ where: { profileId, entityType: "COURSE_ATTEMPT" }, orderBy: { id: "desc" } });
+    expect(change?.payload).toMatchObject({ lessonId, skillId, curriculumVersion: 1 });
+  });
+
   it("replaying a study attempt does not advance twice", async () => {
     const mutation = studyAttemptMutation();
     const first = await pushMutations({ profileId, deviceId, mutations: [mutation] });

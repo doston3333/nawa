@@ -1,17 +1,15 @@
-import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import type {
   LearnPathView,
   LessonProgressRecord,
-  SessionPlan,
   StudySessionView,
 } from "@/domain/learning/types";
-import { BEGINNER_ATOMS } from "@/domain/curriculum/seed";
-import { getActiveLessonById, nextActiveLessonId } from "@/domain/curriculum/path";
-import { buildLessonPlan } from "@/domain/lessons/build-lesson-plan";
+import { nextActiveLessonId } from "@/domain/curriculum/path";
 import { buildLearnPathView, isLessonComplete } from "@/domain/lessons/unlock";
 import { db } from "@/server/db";
 import { ensureProfile, lockProfileWithinTransaction } from "@/server/repositories/study-repository";
+import { getActiveCoursePathContract, startVersionedLessonSession } from "@/server/repositories/course-repository";
+import { ACTIVE_COURSE } from "@/domain/course/catalog";
 
 export async function listLessonProgress(profileId: string): Promise<LessonProgressRecord[]> {
   const rows = await db.lessonProgress.findMany({ where: { profileId } });
@@ -24,10 +22,12 @@ export async function listLessonProgress(profileId: string): Promise<LessonProgr
   }));
 }
 
-export async function getLearnPath(profileId: string): Promise<LearnPathView> {
+export async function getLearnPath(profileId: string): Promise<LearnPathView & { course: ReturnType<typeof getActiveCoursePathContract> }> {
   await ensureProfile(profileId);
   const progress = await listLessonProgress(profileId);
-  return buildLearnPathView(progress);
+  // Historical IDs do not occur in ACTIVE_COURSE, so retained old progress is
+  // readable without completing a new-course lesson.
+  return { ...buildLearnPathView(progress), course: getActiveCoursePathContract() };
 }
 
 export async function startLessonSession(input: {
@@ -35,68 +35,11 @@ export async function startLessonSession(input: {
   lessonId: string;
   now: string;
 }): Promise<StudySessionView> {
-  await ensureProfile(input.profileId);
-  const lesson = getActiveLessonById(input.lessonId);
-  if (!lesson) throw new Error("Lesson not found");
-
-  const path = await getLearnPath(input.profileId);
-  const node = path.units.flatMap((unit) => unit.lessons).find((item) => item.id === input.lessonId);
-  if (!node || node.status === "LOCKED") {
-    throw new Error("Lesson is locked");
-  }
-
-  const active = await db.studySession.findFirst({
-    where: { profileId: input.profileId, status: "ACTIVE" },
-    orderBy: { updatedAt: "desc" },
+  return startVersionedLessonSession({
+    ...input,
+    courseId: ACTIVE_COURSE.id,
+    curriculumVersion: ACTIVE_COURSE.version,
   });
-  if (active) {
-    const plan = active.plan as unknown as SessionPlan;
-    if (plan.mode === "LESSON" && plan.lessonId === input.lessonId) {
-      return {
-        plan,
-        currentTaskIndex: active.currentTaskIndex,
-        status: active.status,
-      };
-    }
-    // Complete other active session so path lessons stay focused
-    await db.studySession.update({
-      where: { id: active.id },
-      data: { status: "COMPLETE" },
-    });
-  }
-
-  const sessionId = randomUUID();
-  const plan = buildLessonPlan({
-    sessionId,
-    profileId: input.profileId,
-    lesson,
-    atoms: BEGINNER_ATOMS,
-    now: input.now,
-  });
-
-  await db.studySession.create({
-    data: {
-      id: sessionId,
-      profileId: input.profileId,
-      durationMinutes: 30,
-      plan: plan as unknown as Prisma.InputJsonValue,
-      startedAt: new Date(input.now),
-    },
-  });
-
-  await db.lessonProgress.upsert({
-    where: {
-      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
-    },
-    update: { status: "IN_PROGRESS" },
-    create: {
-      profileId: input.profileId,
-      lessonId: input.lessonId,
-      status: "IN_PROGRESS",
-    },
-  });
-
-  return { plan, currentTaskIndex: 0, status: "ACTIVE" };
 }
 
 export async function recordLessonAttemptScore(input: {
