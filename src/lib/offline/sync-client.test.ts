@@ -2,7 +2,8 @@ import "fake-indexeddb/auto";
 import { beforeEach, expect, it, vi } from "vitest";
 import { closeOfflineDb, DB_NAME } from "./indexed-db";
 import { enqueueMutation } from "./outbox";
-import { flushOutbox, getDeviceId, pullProfileChanges } from "./sync-client";
+import { listCachedChanges } from "./profile-cache";
+import { flushOutbox, getDeviceId, pullProfileChanges, readSyncCursor, synchronizeProfile } from "./sync-client";
 import type { SyncMutationInput } from "./types";
 
 beforeEach(async () => {
@@ -54,4 +55,25 @@ it("applies pull changes before storing the returned cursor", async () => {
     hasMore: false,
   }), { status: 200 }));
   await expect(pullProfileChanges(profileId)).resolves.toMatchObject({ cursor: "c1", hasMore: false });
+});
+
+it("does not treat a push cursor as a pulled cursor", async () => {
+  const deviceId = await getDeviceId(profileId);
+  await enqueueMutation(mutation(deviceId));
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.endsWith("/api/sync/devices")) return new Response(JSON.stringify({ deviceId }), { status: 201 });
+    if (url.endsWith("/api/sync/push")) {
+      return new Response(JSON.stringify({ acknowledgements: [{ mutationId: mutation(deviceId).mutationId, status: "ACKNOWLEDGED" }], cursor: "push-only-cursor" }), { status: 200 });
+    }
+    return new Response(JSON.stringify({
+      changes: [{ id: "9007199254740993", entityType: "LESSON_PROGRESS", entityId: `${profileId}:script-2`, operation: "UPSERT", revision: 1, payload: { id: `${profileId}:script-2`, profileId, lessonId: "script-2", status: "IN_PROGRESS" } }],
+      cursor: "pull-cursor",
+      hasMore: false,
+    }), { status: 200 });
+  });
+  await expect(synchronizeProfile(profileId)).resolves.toMatchObject({ pull: { cursor: "pull-cursor" } });
+  expect(await readSyncCursor(profileId)).toBe("pull-cursor");
+  expect(await listCachedChanges(profileId)).toHaveLength(1);
+  expect(fetchMock).toHaveBeenCalledTimes(3);
 });

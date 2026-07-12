@@ -12,6 +12,7 @@ import {
   completeLessonAfterSessionWithinTransaction,
   recordLessonAttemptScoreWithinTransaction,
 } from "@/server/repositories/lesson-repository";
+import { stableSerialize } from "@/lib/offline/mutation-identity";
 
 export type SyncMutationKind = "STUDY_ATTEMPT" | "LESSON_PROGRESS";
 
@@ -144,6 +145,22 @@ function storedAck(row: { mutationId: string; status: string; result: unknown })
   return { mutationId: row.mutationId, status: "ACKNOWLEDGED", result: row.result };
 }
 
+function hasReplayIdentityMismatch(
+  existing: { profileId: string; deviceId: string; kind: string; payload: unknown },
+  incoming: SyncMutationInput,
+): boolean {
+  return stableSerialize({ profileId: existing.profileId, deviceId: existing.deviceId, kind: existing.kind, payload: existing.payload }) !==
+    stableSerialize({ profileId: incoming.profileId, deviceId: incoming.deviceId, kind: incoming.kind, payload: incoming.payload });
+}
+
+function replayMismatchAck(mutationId: string): Ack {
+  return {
+    mutationId,
+    status: "REJECTED",
+    result: { code: "MUTATION_REPLAY_MISMATCH", error: "Mutation ID was already acknowledged with different mutation data" },
+  };
+}
+
 async function applyMutationWithinTransaction(
   mutation: SyncMutationInput,
   requestProfileId: string,
@@ -176,6 +193,7 @@ async function applyMutationWithinTransaction(
         result: { code: "MUTATION_OWNERSHIP_MISMATCH", error: "Mutation belongs to another profile or device" },
       } satisfies Ack;
     }
+    if (hasReplayIdentityMismatch(existing, mutation)) return replayMismatchAck(mutation.mutationId);
     return storedAck(existing);
   }
 
@@ -334,7 +352,9 @@ async function persistRejectedWithinTransaction(
   if (!profile) return rejected;
   const existing = await tx.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
   if (existing) {
-    if (existing.profileId === mutation.profileId && existing.deviceId === mutation.deviceId) return storedAck(existing);
+    if (existing.profileId === mutation.profileId && existing.deviceId === mutation.deviceId) {
+      return hasReplayIdentityMismatch(existing, mutation) ? replayMismatchAck(mutation.mutationId) : storedAck(existing);
+    }
     return rejected;
   }
   const createdAt = new Date(mutation.createdAt);
@@ -360,7 +380,9 @@ async function persistRejectedWithinTransaction(
     await tx.$executeRaw`ROLLBACK TO SAVEPOINT nawa_sync_rejected`;
     await tx.$executeRaw`RELEASE SAVEPOINT nawa_sync_rejected`;
     const raced = await tx.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
-    if (raced && raced.profileId === mutation.profileId && raced.deviceId === mutation.deviceId) return storedAck(raced);
+    if (raced && raced.profileId === mutation.profileId && raced.deviceId === mutation.deviceId) {
+      return hasReplayIdentityMismatch(raced, mutation) ? replayMismatchAck(mutation.mutationId) : storedAck(raced);
+    }
   }
   return rejected;
 }

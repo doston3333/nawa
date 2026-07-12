@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { listPendingMutations } from "./outbox";
-import { flushOutbox, readLastSyncAt } from "./sync-client";
+import { readLastSyncAt, synchronizeProfile } from "./sync-client";
 
 export interface OfflineStatus {
   online: boolean;
@@ -30,14 +30,18 @@ export function useOfflineStatus(profileId?: string): OfflineStatus {
     const onOnline = () => {
       setStatus((current) => ({ ...current, online: true }));
       if (!profileId) return;
-      void flushOutbox(profileId).then(async (result) => {
+      void synchronizeProfile(profileId).then(async (sync) => {
         if (!active) return;
         const pending = await listPendingMutations(profileId);
         const lastSyncAt = await readLastSyncAt(profileId);
-        setStatus((current) => ({ ...current, pendingCount: pending.length, lastSyncAt, syncError: result.error ?? null }));
+        setStatus((current) => ({ ...current, pendingCount: pending.length, lastSyncAt, syncError: sync.error ?? null }));
       });
     };
-    void refresh();
+    void refresh().then(() => {
+      if (profileId && navigator.onLine) {
+        onOnline();
+      }
+    });
     window.addEventListener("offline", onOffline);
     window.addEventListener("online", onOnline);
     return () => {

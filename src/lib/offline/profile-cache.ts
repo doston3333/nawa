@@ -82,7 +82,13 @@ export async function listCachedChanges(profileId: string): Promise<OfflineChang
   const tx = db.transaction("changes", "readonly");
   return new Promise<OfflineChange[]>((resolve, reject) => {
     const request = tx.objectStore("changes").index("profileId").getAll(profileId);
-    request.onsuccess = () => resolve((request.result as OfflineChange[]).sort((a, b) => Number(a.id) - Number(b.id)));
+    request.onsuccess = () => resolve((request.result as OfflineChange[]).sort((a, b) => compareChangeIds(a.id, b.id)));
     request.onerror = () => reject(request.error ?? new Error("Unable to list cached changes"));
   });
+}
+
+function compareChangeIds(left: string, right: string): number {
+  const a = left.replace(/^0+(?=\d)/, "");
+  const b = right.replace(/^0+(?=\d)/, "");
+  return a.length === b.length ? a.localeCompare(b) : a.length - b.length;
 }

@@ -61,6 +61,15 @@ describe("idempotent synchronization", () => {
     expect(first.cursor).toBe(second.cursor);
   });
 
+  it("rejects replaying a mutation ID with different mutation data", async () => {
+    const mutation = studyAttemptMutation();
+    const first = await pushMutations({ profileId, deviceId, mutations: [mutation] });
+    expect(first.acknowledgements[0]?.status).toBe("ACKNOWLEDGED");
+    const replay = { ...mutation, payload: { ...(mutation.payload as Record<string, unknown>), taskId: "task-1", nextTaskIndex: 1, event: { ...(mutation.payload as { event: object }).event, correct: false } } };
+    const second = await pushMutations({ profileId, deviceId, mutations: [replay] });
+    expect(second.acknowledgements[0]).toMatchObject({ status: "REJECTED", result: { code: "MUTATION_REPLAY_MISMATCH" } });
+  });
+
   it("rejects an attempt event for a different profile", async () => {
     const mutation = studyAttemptMutation();
     const payload = mutation.payload as { event: { profileId: string } };

@@ -54,7 +54,16 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       databasePromise = undefined;
       reject(request.error ?? new Error("Unable to open offline database"));
     };
-    request.onblocked = () => reject(new Error("Offline database upgrade is blocked"));
+    request.onblocked = () => {
+      // A blocked upgrade leaves the request pending in some IndexedDB
+      // implementations. Clear the cache so a later call can retry after the
+      // other tab closes instead of permanently reusing a rejected promise.
+      databasePromise = undefined;
+      reject(new Error("Offline database upgrade is blocked"));
+    };
+  });
+  databasePromise.catch(() => {
+    databasePromise = undefined;
   });
   return databasePromise;
 }

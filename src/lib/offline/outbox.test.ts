@@ -50,3 +50,32 @@ it("is idempotent and acknowledges only selected mutations", async () => {
   expect(pending).toHaveLength(1);
   expect(pending[0]?.mutationId).toBe(second.mutationId);
 });
+
+it("rejects a different payload for an acknowledged mutation ID", async () => {
+  const original = makeMutation();
+  await enqueueMutation(original);
+  await acknowledgeMutations([original.mutationId]);
+  await expect(enqueueMutation({ ...original, payload: { lessonId: "script-2", status: "IN_PROGRESS" } }))
+    .rejects.toThrow("already acknowledged with a different payload");
+  expect(await listPendingMutations(original.profileId)).toHaveLength(0);
+  await expect(enqueueMutation(original)).resolves.toBeUndefined();
+});
+
+it("returns all pending mutations by default so status counts are not capped", async () => {
+  const profile = makeMutation().profileId;
+  for (let index = 0; index < 60; index += 1) {
+    await enqueueMutation(makeMutation(`00000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`));
+  }
+  expect(await listPendingMutations(profile)).toHaveLength(60);
+  expect(await listPendingMutations(profile, 50)).toHaveLength(50);
+});
+
+it("retains structured rejection details on a queued mutation", async () => {
+  const original = makeMutation();
+  await enqueueMutation(original);
+  await markMutationFailed(original.mutationId, "conflict", { code: "BASE_REVISION_MISMATCH", expectedRevision: 4 });
+  expect((await listPendingMutations(original.profileId))[0]).toMatchObject({
+    lastError: "conflict",
+    lastErrorDetails: { code: "BASE_REVISION_MISMATCH", expectedRevision: 4 },
+  });
+});

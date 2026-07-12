@@ -5,6 +5,7 @@ export type { SyncMutationInput, SyncPullResult, SyncPushResult };
 export interface PendingMutation extends SyncMutationInput {
   attempts: number;
   lastError: string | null;
+  lastErrorDetails?: unknown;
   queuedAt: string;
 }
 

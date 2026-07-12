@@ -6,6 +6,7 @@ import type { FlushResult, PullResult, SyncPullResult } from "./types";
 const deviceKey = (profileId: string) => `deviceId:${profileId}`;
 const cursorKey = (profileId: string) => `cursor:${profileId}`;
 const lastSyncKey = (profileId: string) => `lastSyncAt:${profileId}`;
+const devicePromises = new Map<string, Promise<string>>();
 
 function makeDeviceId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -15,9 +16,21 @@ function makeDeviceId(): string {
 export async function getDeviceId(profileId: string): Promise<string> {
   const existing = await readMeta<string>(deviceKey(profileId));
   if (existing) return existing;
-  const created = makeDeviceId();
-  await writeMeta(deviceKey(profileId), created);
-  return created;
+  const inFlight = devicePromises.get(profileId);
+  if (inFlight) return inFlight;
+  const promise = (async () => {
+    const afterRace = await readMeta<string>(deviceKey(profileId));
+    if (afterRace) return afterRace;
+    const created = makeDeviceId();
+    await writeMeta(deviceKey(profileId), created);
+    return created;
+  })();
+  devicePromises.set(profileId, promise);
+  try {
+    return await promise;
+  } finally {
+    devicePromises.delete(profileId);
+  }
 }
 
 export async function registerDevice(profileId: string, deviceId?: string): Promise<void> {
@@ -50,14 +63,18 @@ export async function flushOutbox(profileId: string): Promise<FlushResult> {
     }
     const result = await response.json() as { acknowledgements?: Array<{ mutationId: string; status: string; conflict?: unknown; result?: unknown }>; cursor?: string };
     const acknowledgements = result.acknowledgements ?? [];
-    const acknowledged = acknowledgements.filter((ack) => ack.status === "ACKNOWLEDGED");
-    const conflicts = acknowledgements.filter((ack) => ack.status === "CONFLICT");
-    const rejected = acknowledgements.filter((ack) => ack.status === "REJECTED");
+    const submittedIds = new Set(pending.map((mutation) => mutation.mutationId));
+    const acknowledged = acknowledgements.filter((ack) => ack.status === "ACKNOWLEDGED" && submittedIds.has(ack.mutationId));
+    const conflicts = acknowledgements.filter((ack) => ack.status === "CONFLICT" && submittedIds.has(ack.mutationId));
+    const rejected = acknowledgements.filter((ack) => ack.status === "REJECTED" && submittedIds.has(ack.mutationId));
     await acknowledgeMutations(acknowledged.map((ack) => ack.mutationId));
     for (const ack of [...conflicts, ...rejected]) {
-      await markMutationFailed(ack.mutationId, ack.status === "CONFLICT" ? "conflict" : "rejected");
+      await markMutationFailed(
+        ack.mutationId,
+        ack.status === "CONFLICT" ? "conflict" : "rejected",
+        ack.status === "CONFLICT" ? ack.conflict : ack.result,
+      );
     }
-    if (result.cursor) await writeMeta(cursorKey(profileId), result.cursor);
     await writeMeta(lastSyncKey(profileId), new Date().toISOString());
     return { pushed: pending.length, acknowledged: acknowledged.length, conflicts: conflicts.length, rejected: rejected.length, cursor: result.cursor };
   } catch (error) {
@@ -75,11 +92,28 @@ export async function pullProfileChanges(profileId: string): Promise<PullResult>
     throw new Error(body?.error || `Sync pull failed (${response.status})`);
   }
   const result = await response.json() as SyncPullResult;
-  const changes = [...(result.changes ?? [])].sort((a, b) => Number(a.id) - Number(b.id));
+  const changes = [...(result.changes ?? [])].sort(compareNumericIds);
   for (const change of changes) await applyServerChange(profileId, change);
   await writeMeta(cursorKey(profileId), result.cursor);
   await writeMeta(lastSyncKey(profileId), new Date().toISOString());
   return { cursor: result.cursor, hasMore: Boolean(result.hasMore), applied: changes.length };
+}
+
+function compareNumericIds(left: { id: string }, right: { id: string }): number {
+  const a = left.id.replace(/^0+(?=\d)/, "");
+  const b = right.id.replace(/^0+(?=\d)/, "");
+  return a.length === b.length ? a.localeCompare(b) : a.length - b.length;
+}
+
+/** Flush local writes, then pull the authoritative stream using the prior cursor. */
+export async function synchronizeProfile(profileId: string): Promise<{ flush: FlushResult; pull?: PullResult; error?: string }> {
+  const flush = await flushOutbox(profileId);
+  try {
+    const pull = await pullProfileChanges(profileId);
+    return { flush, pull, error: flush.error };
+  } catch (error) {
+    return { flush, error: error instanceof Error ? error.message : "Unable to synchronize" };
+  }
 }
 
 export async function readLastSyncAt(profileId: string): Promise<string | null> {
