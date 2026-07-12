@@ -30,6 +30,10 @@ tsc --noEmit (passed; no output)
 
 $ pnpm lint
 eslint . (passed; no output)
+
+$ pnpm vitest run
+Test Files  24 passed (24)
+Tests       56 passed (56)
 ```
 
 ## Concerns / follow-up
