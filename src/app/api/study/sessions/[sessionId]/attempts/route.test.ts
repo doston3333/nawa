@@ -7,8 +7,8 @@ import {
   recordEvidence,
 } from "@/server/repositories/study-repository";
 
-vi.mock("@/server/public-learner", () => ({
-  resolvePublicProfileId: vi.fn(async () => "00000000-0000-4000-8000-000000000001"),
+vi.mock("@/server/profile", () => ({
+  resolveProfileId: vi.fn(async () => "00000000-0000-4000-8000-000000000001"),
 }));
 vi.mock("@/server/repositories/study-repository", () => ({
   recordEvidence: vi.fn(),

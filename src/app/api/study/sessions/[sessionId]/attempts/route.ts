@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { EvidenceEvent, SessionPlan } from "@/domain/learning/types";
-import { resolvePublicProfileId } from "@/server/public-learner";
+import { ProfileSelectionRequiredError, resolveProfileId } from "@/server/profile";
 import {
   advanceSession,
   assertSessionOwnedBy,
@@ -52,7 +52,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
   }
 
   try {
-    const profileId = await resolvePublicProfileId();
+    const profileId = await resolveProfileId();
     const limited = checkRateLimit("attempt", profileId);
     if (!limited.allowed) {
       logEvent("rate_limited", { bucket: "attempt", profile: logLearnerRef(profileId) });
@@ -139,6 +139,12 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
       plan: livePlan,
     });
   } catch (error) {
+    if (error instanceof ProfileSelectionRequiredError) {
+      return NextResponse.json(
+        { error: "Select a profile before recording an attempt", code: error.code },
+        { status: 400 },
+      );
+    }
     const message = error instanceof Error ? error.message : "Unable to record attempt";
     const status = message.includes("does not belong") ? 403 : 503;
     logEvent("attempt_failed", { error: message });

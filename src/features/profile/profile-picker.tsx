@@ -76,6 +76,12 @@ export function ProfilePicker({ initialProfiles }: ProfilePickerProps) {
               key={profile.id}
               type="button"
               onClick={() => void select(profile.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void select(profile.id);
+                }
+              }}
               disabled={busy}
             >
               {profile.name}

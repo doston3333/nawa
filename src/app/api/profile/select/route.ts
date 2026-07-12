@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { selectProfile } from "@/server/profile";
+import { ProfileSelectionRequiredError, selectProfile } from "@/server/profile";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -16,7 +16,10 @@ export async function POST(request: Request) {
   try {
     await selectProfile(profileId);
     return NextResponse.json({ ok: true, profileId });
-  } catch {
-    return NextResponse.json({ error: "That profile is not available" }, { status: 400 });
+  } catch (error) {
+    if (error instanceof ProfileSelectionRequiredError) {
+      return NextResponse.json({ error: "That profile is not available" }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Unable to select profile" }, { status: 503 });
   }
 }

@@ -47,6 +47,9 @@ export async function createProfile(name: string): Promise<ProfileSummary> {
   if (!trimmedName) {
     throw new Error("Profile name is required");
   }
+  if (trimmedName.length > 80) {
+    throw new Error("Profile name must be 80 characters or fewer");
+  }
 
   return db.profile.create({
     data: { id: randomUUID(), name: trimmedName },

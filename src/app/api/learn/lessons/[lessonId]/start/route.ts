@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolvePublicProfileId } from "@/server/public-learner";
+import { ProfileSelectionRequiredError, resolveProfileId } from "@/server/profile";
 import { startLessonSession } from "@/server/repositories/lesson-repository";
 import { checkRateLimit, clientIpFromRequest } from "@/server/rate-limit";
 import { logEvent, logLearnerRef } from "@/server/log";
@@ -16,7 +16,7 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
 
   try {
     const { lessonId } = await context.params;
-    const profileId = await resolvePublicProfileId();
+    const profileId = await resolveProfileId();
     const view = await startLessonSession({
       profileId,
       lessonId,
@@ -29,6 +29,12 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
     });
     return NextResponse.json(view, { status: 201 });
   } catch (error) {
+    if (error instanceof ProfileSelectionRequiredError) {
+      return NextResponse.json(
+        { error: "Select a profile before starting a lesson", code: error.code },
+        { status: 400 },
+      );
+    }
     const message = error instanceof Error ? error.message : "Unable to start lesson";
     const status = message.includes("locked") ? 403 : message.includes("not found") ? 404 : 503;
     return NextResponse.json({ error: message }, { status });

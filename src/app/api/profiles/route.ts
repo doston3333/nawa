@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { createProfile, listProfiles } from "@/server/profile";
 
 export async function GET() {
-  return NextResponse.json({ profiles: await listProfiles() });
+  try {
+    return NextResponse.json({ profiles: await listProfiles() });
+  } catch {
+    return NextResponse.json({ error: "Unable to load profiles" }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -20,17 +24,16 @@ export async function POST(request: Request) {
   if (!name) {
     return NextResponse.json({ error: "Profile name is required" }, { status: 400 });
   }
-  if (name.length > 80) {
-    return NextResponse.json({ error: "Profile name must be 80 characters or fewer" }, { status: 400 });
-  }
-
   try {
     const profile = await createProfile(name);
     return NextResponse.json(profile, { status: 201 });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to create profile";
+    const isValidationError =
+      message === "Profile name is required" || message === "Profile name must be 80 characters or fewer";
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to create profile" },
-      { status: 400 },
+      { error: message },
+      { status: isValidationError ? 400 : 503 },
     );
   }
 }

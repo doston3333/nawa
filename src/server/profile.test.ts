@@ -78,6 +78,12 @@ describe("profile ownership and sync ledger", () => {
     await expect(createProfile("   ")).rejects.toThrow("Profile name is required");
   });
 
+  it("rejects profile names longer than 80 characters", async () => {
+    await expect(createProfile("x".repeat(81))).rejects.toThrow(
+      "Profile name must be 80 characters or fewer",
+    );
+  });
+
   it("only treats explicitly created profiles as selectable", async () => {
     expect(await profileExists(createdProfileIds[0]!)).toBe(true);
     expect(await profileExists(randomUUID())).toBe(false);

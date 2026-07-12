@@ -44,3 +44,38 @@ Next.js production build passed; routes compiled, including dynamic `/profiles`,
 - Existing public API route callers still import `resolvePublicProfileId`; the strict resolver is used by the page gates. A later migration can move those callers to `resolveProfileId` once their route tests are updated.
 - The root landing page remains a public informational shell and exposes a “Switch profile” link; `/learn` and `/study` are the enforced profile-gated learning surfaces.
 - The implementation intentionally does not add authentication or a distributed session/rate-limit service, matching the 2–3-person private-use scope.
+
+## Review fixes (2026-07-12)
+
+The follow-up review findings are resolved in the working tree:
+
+- Migrated `/api/learn/path`, `/api/learn/lessons/[lessonId]/start`, `/api/study/sessions`, `/api/study/sessions/[sessionId]/attempts`, and `/api/study/reset` to strict `resolveProfileId()`.
+- Learning APIs return `400 PROFILE_SELECTION_REQUIRED` for missing, stale, or unknown profile selection instead of creating a random profile. Database and repository failures remain `503`.
+- Reset only swallows the typed selection-required error because reset is an explicit user action; database failures are still surfaced as `503`. New reset profiles use the same cookie helper and flags as normal profile selection.
+- `createProfile()` now owns the 80-character maximum validation; the profile route preserves `400` for validation and returns `503` for storage failures.
+- Profile selection now distinguishes unknown profile (`400`) from persistence failure (`503`). Profile listing also returns `503` on storage failure.
+- Added regression tests for API `201`/`400` validation, profile cookie flags and 400-day max age, keyboard Enter activation, strict no-cookie/unknown-cookie route behavior, and database `5xx` responses.
+
+## Review-fix verification (exact outputs)
+
+```text
+$ pnpm vitest run src/app/api/profiles/route.test.ts src/app/api/profile/select/route.test.ts src/app/api/learn/path/route.test.ts src/app/api/study/sessions/route.test.ts src/app/api/study/sessions/[sessionId]/attempts/route.test.ts src/features/profile/profile-picker.test.tsx src/server/profile-cookie.test.ts src/server/profile.test.ts
+Test Files  8 passed (8)
+Tests       23 passed (23)
+
+$ pnpm test
+Test Files  28 passed (28)
+Tests       69 passed (69)
+
+$ pnpm typecheck
+tsc --noEmit (passed; no output)
+
+$ pnpm lint
+eslint . (passed; no output)
+
+$ pnpm build
+Next.js 16.2.10 production build passed; all app/API routes compiled.
+
+$ git diff --check
+(no output; exit 0)
+```

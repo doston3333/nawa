@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { PROFILE_COOKIE, resolvePublicProfileId } from "@/server/public-learner";
+import { ProfileSelectionRequiredError, resolveProfileId, selectProfile } from "@/server/profile";
 import { db } from "@/server/db";
 import { logEvent, logLearnerRef } from "@/server/log";
 import { randomUUID } from "node:crypto";
@@ -13,8 +12,9 @@ export async function POST() {
   try {
     let previousId: string | null = null;
     try {
-      previousId = await resolvePublicProfileId();
-    } catch {
+      previousId = await resolveProfileId();
+    } catch (error) {
+      if (!(error instanceof ProfileSelectionRequiredError)) throw error;
       previousId = null;
     }
 
@@ -28,14 +28,7 @@ export async function POST() {
 
     const profileId = randomUUID();
     await ensureProfile(profileId);
-    const jar = await cookies();
-    jar.set(PROFILE_COOKIE, profileId, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") === true,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 400,
-    });
+    await selectProfile(profileId);
 
     return NextResponse.json({
       ok: true,

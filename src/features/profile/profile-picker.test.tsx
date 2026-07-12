@@ -38,6 +38,17 @@ describe("ProfilePicker", () => {
     );
   });
 
+  it("selects a focused profile with Enter", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, profileId: "p1" }), { status: 200 }),
+    );
+    render(<ProfilePicker initialProfiles={[{ id: "p1", name: "Amina" }]} />);
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Amina" }), { key: "Enter" });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("creates and selects a named profile", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     fetchMock
