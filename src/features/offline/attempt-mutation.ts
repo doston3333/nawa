@@ -2,6 +2,7 @@ import type { EvidenceEvent } from "@/domain/learning/types";
 import type { SyncMutationInput } from "@/lib/offline/types";
 
 export const ACTIVE_PROFILE_STORAGE_KEY = "nawa_active_profile_id";
+export const ACTIVE_PROFILE_NAME_STORAGE_KEY = "nawa_active_profile_name";
 
 export function readActiveProfileId(): string | null {
   try {

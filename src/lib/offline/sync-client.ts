@@ -9,6 +9,10 @@ const lastSyncKey = (profileId: string) => `lastSyncAt:${profileId}`;
 const devicePromises = new Map<string, Promise<string>>();
 const profileSyncPromises = new Map<string, { kind: "flush" | "synchronize"; promise: Promise<unknown> }>();
 
+function isTransientNetworkFailure(error: unknown): boolean {
+  return error instanceof TypeError || (typeof navigator !== "undefined" && navigator.onLine === false);
+}
+
 function makeDeviceId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
   throw new Error("Secure random UUID generation is unavailable");
@@ -79,6 +83,13 @@ async function flushOutboxInternal(profileId: string): Promise<FlushResult> {
     await writeMeta(lastSyncKey(profileId), new Date().toISOString());
     return { pushed: pending.length, acknowledged: acknowledged.length, conflicts: conflicts.length, rejected: rejected.length, cursor: result.cursor };
   } catch (error) {
+    if (isTransientNetworkFailure(error)) {
+      // Keep the mutation queued and let the next online event retry it. A
+      // disconnected browser is not a rejected mutation and should continue
+      // to advertise local work as waiting to sync.
+      const message = error instanceof Error ? error.message : "Unable to synchronize";
+      return { pushed: 0, acknowledged: 0, conflicts: 0, rejected: 0, error: message, transient: true };
+    }
     const message = error instanceof Error ? error.message : "Unable to synchronize";
     for (const mutation of pending) await markMutationFailed(mutation.mutationId, message);
     return { pushed: 0, acknowledged: 0, conflicts: 0, rejected: 0, error: message };
@@ -112,13 +123,14 @@ function compareNumericIds(left: { id: string }, right: { id: string }): number 
 }
 
 /** Flush local writes, then pull the authoritative stream using the prior cursor. */
-export function synchronizeProfile(profileId: string): Promise<{ flush: FlushResult; pull?: PullResult; error?: string }> {
+export function synchronizeProfile(profileId: string): Promise<{ flush: FlushResult; pull?: PullResult; error?: string; transient?: boolean }> {
   return withProfileSyncLock(profileId, "synchronize", async () => {
     const flush = await flushOutboxInternal(profileId);
     try {
       const pull = await pullProfileChanges(profileId);
-      return { flush, pull, error: flush.error };
+      return { flush, pull, error: flush.error, transient: flush.transient };
     } catch (error) {
+      if (isTransientNetworkFailure(error)) return { flush, error: error instanceof Error ? error.message : "Unable to synchronize", transient: true };
       return { flush, error: error instanceof Error ? error.message : "Unable to synchronize" };
     }
   });

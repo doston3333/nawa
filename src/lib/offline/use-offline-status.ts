@@ -43,9 +43,9 @@ export function useOfflineStatus(profileId?: string): OfflineStatus {
         try {
           const pending = await listPendingMutations(profileId);
           const lastSyncAt = await readLastSyncAt(profileId);
-          setStatus((current) => ({ ...current, pendingCount: pending.length, lastSyncAt, syncError: sync.error ?? null }));
+          setStatus((current) => ({ ...current, pendingCount: pending.length, lastSyncAt, syncError: sync.transient ? null : sync.error ?? null }));
         } catch {
-          setStatus((current) => ({ ...current, syncError: sync.error ?? null }));
+          setStatus((current) => ({ ...current, syncError: sync.transient ? null : sync.error ?? null }));
         }
       }).catch((error: unknown) => {
         if (active) setStatus((current) => ({ ...current, syncError: error instanceof Error ? error.message : "Unable to synchronize" }));

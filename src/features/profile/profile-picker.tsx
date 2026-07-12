@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ProfileSummary } from "@/server/profile";
+import { ACTIVE_PROFILE_NAME_STORAGE_KEY, ACTIVE_PROFILE_STORAGE_KEY } from "@/features/offline/attempt-mutation";
 
 type ProfilePickerProps = {
   initialProfiles: ProfileSummary[];
@@ -15,7 +16,7 @@ export function ProfilePicker({ initialProfiles }: ProfilePickerProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function select(profileId: string) {
+  async function select(profileId: string, profileName?: string) {
     setBusy(true);
     setError(null);
     try {
@@ -27,7 +28,9 @@ export function ProfilePicker({ initialProfiles }: ProfilePickerProps) {
       const body = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Unable to select profile");
       try {
-        window.localStorage.setItem("nawa_active_profile_id", profileId);
+        window.localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, profileId);
+        const selectedName = profileName ?? profiles.find((profile) => profile.id === profileId)?.name;
+        if (selectedName) window.localStorage.setItem(ACTIVE_PROFILE_NAME_STORAGE_KEY, selectedName);
       } catch {
         // Some test/embedded environments disable browser storage. The
         // httpOnly profile cookie remains authoritative in that case.
@@ -59,7 +62,7 @@ export function ProfilePicker({ initialProfiles }: ProfilePickerProps) {
       if (!response.ok) throw new Error(body.error ?? "Unable to create profile");
       setProfiles((current) => [...current, { id: body.id, name: body.name }]);
       setName("");
-      await select(body.id);
+      await select(body.id, body.name);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to create profile");
       setBusy(false);
@@ -81,11 +84,11 @@ export function ProfilePicker({ initialProfiles }: ProfilePickerProps) {
               className="profile-choice"
               key={profile.id}
               type="button"
-              onClick={() => void select(profile.id)}
+              onClick={() => void select(profile.id, profile.name)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  void select(profile.id);
+                  void select(profile.id, profile.name);
                 }
               }}
               disabled={busy}

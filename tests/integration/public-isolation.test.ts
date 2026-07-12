@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/server/db";
 import { advanceSession, ensureProfile, startOrResumeSession } from "@/server/repositories/study-repository";
+import { getLearnPath } from "@/server/repositories/lesson-repository";
 
 const profileA = randomUUID();
 const profileB = randomUUID();
@@ -8,6 +9,8 @@ const profileB = randomUUID();
 beforeAll(async () => {
   await ensureProfile(profileA);
   await ensureProfile(profileB);
+  await db.profile.update({ where: { id: profileA }, data: { name: "Amina isolation" } });
+  await db.profile.update({ where: { id: profileB }, data: { name: "Omar isolation" } });
 });
 
 afterAll(async () => {
@@ -54,4 +57,22 @@ it("keeps concurrent visitors on isolated study sessions", async () => {
   });
   expect(resumedB.plan.id).toBe(firstB.plan.id);
   expect(resumedB.currentTaskIndex).toBe(0);
+});
+
+it("keeps lesson path progress and profile identity isolated", async () => {
+  await db.lessonProgress.create({
+    data: { profileId: profileA, lessonId: "script-1", status: "IN_PROGRESS" },
+  });
+
+  const [pathA, pathB, profiles] = await Promise.all([
+    getLearnPath(profileA),
+    getLearnPath(profileB),
+    db.profile.findMany({ where: { id: { in: [profileA, profileB] } }, orderBy: { name: "asc" } }),
+  ]);
+  const lessonA = pathA.units.flatMap((unit) => unit.lessons).find((lesson) => lesson.id === "script-1");
+  const lessonB = pathB.units.flatMap((unit) => unit.lessons).find((lesson) => lesson.id === "script-1");
+
+  expect(profiles.map((profile) => profile.name)).toEqual(["Amina isolation", "Omar isolation"]);
+  expect(lessonA?.status).toBe("IN_PROGRESS");
+  expect(lessonB?.status).toBe("AVAILABLE");
 });

@@ -1,15 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { getLessonById } from "@/domain/curriculum/path";
 import { TaskCard } from "@/features/study-room/task-card";
 import { ProgressSummary } from "@/features/study-room/progress-summary";
 import { LessonTips } from "./lesson-tips";
 import { useLessonSession } from "./use-lesson-session";
 import { SyncStatus } from "@/features/offline/sync-status";
+import { ACTIVE_PROFILE_NAME_STORAGE_KEY } from "@/features/offline/attempt-mutation";
 
 export function LessonRunner({ lessonId, title }: { lessonId: string; title?: string }) {
   const session = useLessonSession(lessonId);
+  const [profileName] = useState<string | null>(() => {
+    try {
+      return window.localStorage.getItem(ACTIVE_PROFILE_NAME_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
   const lesson = getLessonById(lessonId);
   const tips = lesson?.tips ?? [];
   const isCheckpoint = lesson?.kind === "CHECKPOINT";
@@ -93,6 +102,7 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
           <p className="study-room-status-kicker">
             {isCheckpoint ? "Unit checkpoint" : "Lesson"}
           </p>
+          {profileName ? <p className="study-room-status-kicker">Profile: {profileName}</p> : null}
           <Link className="text-action" href="/learn">
             Path
           </Link>

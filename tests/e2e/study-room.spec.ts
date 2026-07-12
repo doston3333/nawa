@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 for (const viewport of [{ name: "desktop", width: 1440, height: 900 }, { name: "mobile", width: 375, height: 812 }]) {
   test(`${viewport.name} learner completes and resumes a study session`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/profiles");
+    await page.getByRole("button", { name: "Omar", exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
     await page.goto("/study");
     await expect(page.getByRole("heading", { name: "Arrival" })).toBeVisible();
     await page.reload();

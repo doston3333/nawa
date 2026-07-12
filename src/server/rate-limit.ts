@@ -26,6 +26,9 @@ export function rateLimitKey(bucket: RateLimitBucket, id: string): string {
 
 export function checkRateLimit(bucket: RateLimitBucket, id: string, now = Date.now()): RateLimitResult {
   const config = LIMITS[bucket];
+  if (process.env.E2E_ALLOW_RATE_LIMIT_BYPASS === "true") {
+    return { allowed: true, remaining: config.limit, retryAfterSec: 0, limit: config.limit };
+  }
   const key = rateLimitKey(bucket, id);
   const current = store.get(key);
 

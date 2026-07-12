@@ -32,6 +32,7 @@ export interface FlushResult {
   rejected: number;
   cursor?: string;
   error?: string;
+  transient?: boolean;
 }
 
 export interface PullResult {

@@ -3,6 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { LearnPathView, LessonNodeStatus } from "@/domain/learning/types";
+import { ACTIVE_PROFILE_NAME_STORAGE_KEY, isNetworkFailure, readActiveProfileId } from "@/features/offline/attempt-mutation";
+import { cacheLearnPath, readCachedLearnPath } from "@/lib/offline/profile-cache";
+
+type PathUnavailableError = Error & { pathUnavailable?: boolean };
+
+function pathUnavailable(reason: unknown): boolean {
+  if (isNetworkFailure(reason)) return true;
+  return typeof reason === "object" && reason !== null &&
+    "pathUnavailable" in reason && reason.pathUnavailable === true;
+}
 
 function statusLabel(status: LessonNodeStatus): string {
   if (status === "COMPLETE") return "Complete";
@@ -13,20 +23,48 @@ function statusLabel(status: LessonNodeStatus): string {
 
 export function PathMap() {
   const [path, setPath] = useState<LearnPathView | null>(null);
+  const [profileName] = useState<string | null>(() => {
+    try {
+      return window.localStorage.getItem(ACTIVE_PROFILE_NAME_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
+    const profileId = readActiveProfileId();
     fetch("/api/learn/path", { signal: controller.signal })
       .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? "Unable to load path");
-        setPath(body as LearnPathView);
+        const body = await response.json().catch(() => null) as { error?: string } | LearnPathView | null;
+        if (!response.ok) {
+          const message = body && "error" in body && body.error ? body.error : "Unable to load path";
+          const unavailable = Object.assign(new Error(message), { pathUnavailable: response.status >= 500 });
+          throw unavailable satisfies PathUnavailableError;
+        }
+        const nextPath = body as LearnPathView;
+        if (profileId) void cacheLearnPath(profileId, nextPath).catch(() => undefined);
+        setPath(nextPath);
       })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : "Unable to load path");
+          if (profileId && pathUnavailable(reason)) {
+            return readCachedLearnPath(profileId).then((cached) => {
+              if (controller.signal.aborted) return;
+              if (cached) {
+                setPath(cached);
+                setError(null);
+              } else {
+                setError("Internet required to load your learning path");
+              }
+            }).catch(() => {
+              if (!controller.signal.aborted) setError("Internet required to load your learning path");
+            });
+          } else {
+            setError(reason instanceof Error ? reason.message : "Unable to load path");
+          }
         }
       })
       .finally(() => {
@@ -66,6 +104,7 @@ export function PathMap() {
       <header className="path-header">
         <p className="study-room-status-kicker">MSA beginner path</p>
         <h1>Your lessons</h1>
+        {profileName ? <p className="study-room-status-kicker">Profile: {profileName}</p> : null}
         <p className="path-lede">
           Eight units of short modular lessons, each ending in a <strong>checkpoint mini-test</strong>.
           Explanations before you practice. Ability-aware mastery underneath — no hearts or streaks.

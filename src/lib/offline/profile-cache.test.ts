@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, expect, it } from "vitest";
 import { closeOfflineDb, DB_NAME } from "./indexed-db";
-import { applyServerChange, listCachedChanges, selectLatestActiveSession } from "./profile-cache";
+import { applyServerChange, cacheLearnPath, listCachedChanges, readCachedLearnPath, selectLatestActiveSession } from "./profile-cache";
 
 const profileId = "00000000-0000-4000-8000-000000000010";
 
@@ -40,4 +40,15 @@ it("selects the newest active cached session and rejects completed sessions", ()
     { id: "newest-active", status: "ACTIVE", currentTaskIndex: 0, updatedAt: "2026-07-12T09:00:00.000Z", plan: { tasks: [{}] } },
   ];
   expect(selectLatestActiveSession(rows)?.id).toBe("newest-active");
+});
+
+it("keeps cached learning paths isolated by profile", async () => {
+  const pathA = { units: [], nextLessonId: "script-1" };
+  const pathB = { units: [], nextLessonId: "greetings-1" };
+  await cacheLearnPath(profileId, pathA);
+  await cacheLearnPath("00000000-0000-4000-8000-000000000011", pathB);
+
+  await expect(readCachedLearnPath(profileId)).resolves.toEqual(pathA);
+  await expect(readCachedLearnPath("00000000-0000-4000-8000-000000000011")).resolves.toEqual(pathB);
+  await expect(readCachedLearnPath("00000000-0000-4000-8000-000000000012")).resolves.toBeUndefined();
 });

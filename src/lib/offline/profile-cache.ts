@@ -1,5 +1,6 @@
 import { openOfflineDb, transactionComplete } from "./indexed-db";
 import type { CachedProfile, OfflineChange } from "./types";
+import type { LearnPathView } from "@/domain/learning/types";
 
 type CacheStore = "profiles" | "sessions" | "progress" | "readingPositions";
 
@@ -82,6 +83,28 @@ export async function listCachedSessions(profileId: string): Promise<Record<stri
 
 export function cacheProgress(profileId: string, progress: Record<string, unknown>): Promise<void> {
   return putRecord("progress", progress, profileId);
+}
+
+/**
+ * Cache the profile's derived Learn path in the profile-owned IndexedDB
+ * progress store.  The profile prefix is part of the key because IndexedDB
+ * object-store keys are global even when a record also carries profileId.
+ */
+export function cacheLearnPath(profileId: string, path: LearnPathView): Promise<void> {
+  return putRecord("progress", { id: `${profileId}:path`, path }, profileId);
+}
+
+export async function readCachedLearnPath(profileId: string): Promise<LearnPathView | undefined> {
+  const db = await openOfflineDb();
+  const tx = db.transaction("progress", "readonly");
+  return await new Promise<LearnPathView | undefined>((resolve, reject) => {
+    const request = tx.objectStore("progress").get(`${profileId}:path`);
+    request.onsuccess = () => {
+      const row = request.result as { profileId?: string; path?: LearnPathView } | undefined;
+      resolve(row?.profileId === profileId && row.path ? row.path : undefined);
+    };
+    request.onerror = () => reject(request.error ?? new Error("Unable to read cached learning path"));
+  });
 }
 
 export function cacheReadingPosition(profileId: string, position: Record<string, unknown>): Promise<void> {
