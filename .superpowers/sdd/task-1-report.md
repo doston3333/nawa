@@ -94,3 +94,41 @@ $ git diff --check
 ```
 
 Fixes commit: `fcebd8d fix: close Task 1 profile review findings`.
+
+## Cookie-boundary review follow-up (2026-07-12)
+
+`resolvePublicProfileId()` now verifies that current and historical cookie UUIDs
+already exist as `Profile` rows before calling `ensureProfile()`. Unknown,
+stale, forged, and malformed cookie values raise the typed
+`ProfileSelectionRequiredError`; they cannot create a blank profile through the
+upsert path. Valid legacy cookies still promote to the current profile cookie.
+
+Regression coverage includes unknown current and legacy cookie values and the
+profile existence predicate.
+
+## Follow-up verification (exact output)
+
+```text
+$ pnpm vitest run src/server/profile.test.ts src/server/public-learner.test.ts
+
+ RUN  v4.1.10 /Users/doston/Downloads/nawa
+
+
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Start at  10:24:42
+   Duration  593ms (transform 66ms, setup 74ms, import 76ms, tests 129ms, environment 549ms)
+
+$ pnpm typecheck
+
+> nawa@0.1.0 typecheck /Users/doston/Downloads/nawa
+> tsc --noEmit
+
+$ pnpm lint
+
+> nawa@0.1.0 lint /Users/doston/Downloads/nawa
+> eslint .
+
+$ git diff --check
+(no output; exit 0)
+```

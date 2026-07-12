@@ -27,6 +27,11 @@ export async function listProfiles(): Promise<ProfileSummary[]> {
   });
 }
 
+export async function profileExists(profileId: string): Promise<boolean> {
+  const profile = await db.profile.findUnique({ where: { id: profileId }, select: { id: true } });
+  return profile !== null;
+}
+
 export async function listProfileSessions(profileId: string): Promise<StudySession[]> {
   return db.studySession.findMany({ where: { profileId }, orderBy: { updatedAt: "desc" } });
 }

@@ -6,6 +6,7 @@ import {
   createProfile,
   listProfileSessions,
   listProfiles,
+  profileExists,
   recordMutation,
 } from "@/server/profile";
 
@@ -75,5 +76,10 @@ describe("profile ownership and sync ledger", () => {
 
   it("rejects blank profile names", async () => {
     await expect(createProfile("   ")).rejects.toThrow("Profile name is required");
+  });
+
+  it("only treats explicitly created profiles as selectable", async () => {
+    expect(await profileExists(createdProfileIds[0]!)).toBe(true);
+    expect(await profileExists(randomUUID())).toBe(false);
   });
 });

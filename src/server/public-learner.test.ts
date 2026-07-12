@@ -17,6 +17,10 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => cookieStore),
 }));
 
+vi.mock("@/server/profile", () => ({
+  profileExists: vi.fn(async () => true),
+}));
+
 vi.mock("@/server/repositories/study-repository", () => ({
   ensureProfile: vi.fn(async () => undefined),
 }));
@@ -56,4 +60,32 @@ it("promotes the legacy learner cookie without issuing a new profile id", async 
 
   expect(resolved).toBe(legacyId);
   expect(cookieStore.profile).toBe(legacyId);
+});
+
+it("rejects an unknown current profile cookie without creating a profile", async () => {
+  const { resolvePublicProfileId, ProfileSelectionRequiredError } = await import("./public-learner");
+  const { ensureProfile } = await import("@/server/repositories/study-repository");
+  const { profileExists } = await import("@/server/profile");
+  process.env.ENABLE_PUBLIC_DEMO = "true";
+  const staleId = "00000000-0000-4000-8000-000000000124";
+  cookieStore.profile = staleId;
+  vi.mocked(profileExists).mockResolvedValue(false);
+
+  await expect(resolvePublicProfileId()).rejects.toBeInstanceOf(ProfileSelectionRequiredError);
+  expect(ensureProfile).not.toHaveBeenCalled();
+  expect(cookieStore.profile).toBe(staleId);
+});
+
+it("rejects an unknown legacy learner cookie without creating a profile", async () => {
+  const { resolvePublicProfileId, ProfileSelectionRequiredError } = await import("./public-learner");
+  const { ensureProfile } = await import("@/server/repositories/study-repository");
+  const { profileExists } = await import("@/server/profile");
+  process.env.ENABLE_PUBLIC_DEMO = "true";
+  const staleId = "00000000-0000-4000-8000-000000000125";
+  cookieStore.legacy = staleId;
+  vi.mocked(profileExists).mockResolvedValue(false);
+
+  await expect(resolvePublicProfileId()).rejects.toBeInstanceOf(ProfileSelectionRequiredError);
+  expect(ensureProfile).not.toHaveBeenCalled();
+  expect(cookieStore.profile).toBeUndefined();
 });
