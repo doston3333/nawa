@@ -99,8 +99,9 @@ export function useLessonSession(lessonId: string) {
             });
             return;
           }
-          setError(reason instanceof Error ? reason.message : "Unable to start lesson");
-          setInternetRequired(false);
+          const networkRequired = isNetworkFailure(reason);
+          setError(networkRequired ? "Internet required to start this lesson" : reason instanceof Error ? reason.message : "Unable to start lesson");
+          setInternetRequired(networkRequired);
           setLoading(false);
         }
       });
