@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented and committed as `d2fdc34 feat: add passwordless profile selection`.
+Implemented and committed as `d2fdc34 feat: add passwordless profile selection`; strict compatibility and route-test review fixes committed as `af0ff89 fix: make public learner compatibility strict`.
 
 ## Delivered
 
