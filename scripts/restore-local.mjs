@@ -84,13 +84,21 @@ export async function restoreBackup(
   const dataDir = resolve(process.env.NAWA_DATA_DIR || join(cwd, ".data"));
   const uploadsDir = resolve(process.env.NAWA_UPLOADS_DIR || join(dataDir, "uploads"));
   if (dryRun) return { ...backup, uploadsDir, databaseUrl };
-  await commandRunner("psql", ["--set", "ON_ERROR_STOP=1", "--dbname", databaseUrl, "--file", backup.dumpPath]);
   await mkdir(dirname(uploadsDir), { recursive: true });
   const stagedUploadsDir = `${uploadsDir}.restore-${process.pid}-${Date.now()}`;
   const previousUploadsDir = `${uploadsDir}.previous-${process.pid}-${Date.now()}`;
   await removePath(stagedUploadsDir, { recursive: true, force: true });
   try {
     await copyDirectory(backup.uploadsPath, stagedUploadsDir);
+    await commandRunner("psql", [
+      "--set",
+      "ON_ERROR_STOP=1",
+      "--single-transaction",
+      "--dbname",
+      databaseUrl,
+      "--file",
+      backup.dumpPath,
+    ]);
     let movedExisting = false;
     try {
       await renamePath(uploadsDir, previousUploadsDir);

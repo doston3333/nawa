@@ -64,7 +64,7 @@ pnpm restore:local -- .data/backups/<UTC-timestamp>
 
 The host commands require PostgreSQL 17-compatible client tools (`pg_dump` and `psql`) on `PATH` (for example, `brew install libpq` on macOS). The `postgres:17-bookworm` database image contains matching tools for operators who prefer to run a Compose-side dump/restore; keep the dump stream on the host and do not use a client from an older major version.
 
-Restore validates the manifest, dump, and uploads directory before changing anything. It refuses a non-local database URL; for an explicitly approved VPS restore, set `ALLOW_RESTORE=true` in the command environment. The uploads replacement is staged first and swapped in only after a successful copy, so a failed restore preserves the prior originals. Test the safety checks without running `pg_dump` or `psql`:
+Restore validates the manifest, dump, and uploads directory before changing anything. It refuses a non-local database URL; for an explicitly approved VPS restore, set `ALLOW_RESTORE=true` in the command environment. Uploads are staged before the database import, and `psql` runs as one transaction, so validation, copy, or database failures preserve the prior originals. After a successful database restore, a filesystem rename failure should be retried with the same backup before using the restored database with imported files. Test the safety checks without running `pg_dump` or `psql`:
 
 ```bash
 pnpm backup:local -- --dry-run
