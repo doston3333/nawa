@@ -7,6 +7,7 @@ const deviceKey = (profileId: string) => `deviceId:${profileId}`;
 const cursorKey = (profileId: string) => `cursor:${profileId}`;
 const lastSyncKey = (profileId: string) => `lastSyncAt:${profileId}`;
 const devicePromises = new Map<string, Promise<string>>();
+const profileSyncPromises = new Map<string, { kind: "flush" | "synchronize"; promise: Promise<unknown> }>();
 
 function makeDeviceId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -46,7 +47,7 @@ export async function registerDevice(profileId: string, deviceId?: string): Prom
   }
 }
 
-export async function flushOutbox(profileId: string): Promise<FlushResult> {
+async function flushOutboxInternal(profileId: string): Promise<FlushResult> {
   const pending = await listPendingMutations(profileId, 50);
   if (!pending.length) return { pushed: 0, acknowledged: 0, conflicts: 0, rejected: 0 };
   try {
@@ -84,6 +85,11 @@ export async function flushOutbox(profileId: string): Promise<FlushResult> {
   }
 }
 
+/** Coalesce overlapping online/visibility sync triggers per profile. */
+export function flushOutbox(profileId: string): Promise<FlushResult> {
+  return withProfileSyncLock(profileId, "flush", () => flushOutboxInternal(profileId));
+}
+
 export async function pullProfileChanges(profileId: string): Promise<PullResult> {
   const cursor = (await readMeta<string>(cursorKey(profileId))) ?? "MA";
   const response = await fetch(`/api/sync/pull?cursor=${encodeURIComponent(cursor)}`, { method: "GET" });
@@ -106,14 +112,28 @@ function compareNumericIds(left: { id: string }, right: { id: string }): number 
 }
 
 /** Flush local writes, then pull the authoritative stream using the prior cursor. */
-export async function synchronizeProfile(profileId: string): Promise<{ flush: FlushResult; pull?: PullResult; error?: string }> {
-  const flush = await flushOutbox(profileId);
-  try {
-    const pull = await pullProfileChanges(profileId);
-    return { flush, pull, error: flush.error };
-  } catch (error) {
-    return { flush, error: error instanceof Error ? error.message : "Unable to synchronize" };
-  }
+export function synchronizeProfile(profileId: string): Promise<{ flush: FlushResult; pull?: PullResult; error?: string }> {
+  return withProfileSyncLock(profileId, "synchronize", async () => {
+    const flush = await flushOutboxInternal(profileId);
+    try {
+      const pull = await pullProfileChanges(profileId);
+      return { flush, pull, error: flush.error };
+    } catch (error) {
+      return { flush, error: error instanceof Error ? error.message : "Unable to synchronize" };
+    }
+  });
+}
+
+function withProfileSyncLock<T>(profileId: string, kind: "flush" | "synchronize", task: () => Promise<T>): Promise<T> {
+  const existing = profileSyncPromises.get(profileId);
+  if (existing?.kind === kind) return existing.promise as Promise<T>;
+  const promise = (existing?.promise ?? Promise.resolve()).catch(() => undefined).then(task);
+  profileSyncPromises.set(profileId, { kind, promise });
+  void promise.then(
+    () => { if (profileSyncPromises.get(profileId)?.promise === promise) profileSyncPromises.delete(profileId); },
+    () => { if (profileSyncPromises.get(profileId)?.promise === promise) profileSyncPromises.delete(profileId); },
+  );
+  return promise;
 }
 
 export async function readLastSyncAt(profileId: string): Promise<string | null> {

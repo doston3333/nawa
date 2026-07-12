@@ -79,3 +79,34 @@ it("retains structured rejection details on a queued mutation", async () => {
     lastErrorDetails: { code: "BASE_REVISION_MISMATCH", expectedRevision: 4 },
   });
 });
+
+it("cannot acknowledge an ID while a concurrent changed payload is enqueued", async () => {
+  const original = makeMutation();
+  const changed = { ...original, payload: { lessonId: "script-2", status: "IN_PROGRESS" } };
+  await enqueueMutation(original);
+
+  const results = await Promise.allSettled([
+    acknowledgeMutations([original.mutationId]),
+    enqueueMutation(changed),
+  ]);
+
+  expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+  expect(await listPendingMutations(original.profileId)).toHaveLength(0);
+  // The acknowledgement ledger must retain the original identity. A later
+  // enqueue of the changed payload must still be rejected.
+  await expect(enqueueMutation(changed)).rejects.toThrow("already acknowledged with a different payload");
+});
+
+it("does not resurrect a mutation when failure marking races with acknowledgement", async () => {
+  const original = makeMutation();
+  await enqueueMutation(original);
+
+  await Promise.all([
+    acknowledgeMutations([original.mutationId]),
+    markMutationFailed(original.mutationId, "late failure"),
+  ]);
+
+  expect(await listPendingMutations(original.profileId)).toHaveLength(0);
+  await expect(enqueueMutation({ ...original, payload: { lessonId: "script-2", status: "IN_PROGRESS" } }))
+    .rejects.toThrow("already acknowledged with a different payload");
+});

@@ -1,5 +1,5 @@
 import type { SyncMutationInput } from "./types";
-import { openOfflineDb, transactionComplete } from "./indexed-db";
+import { openOfflineDb } from "./indexed-db";
 import type { PendingMutation } from "./types";
 import { mutationIdentity } from "./mutation-identity";
 
@@ -8,39 +8,54 @@ const acknowledgedKey = (mutationId: string) => `acknowledgedMutation:${mutation
 
 export async function enqueueMutation(mutation: SyncMutationInput): Promise<void> {
   const db = await openOfflineDb();
-  const readTx = db.transaction(["outbox", "meta"], "readonly");
-  const [existing, acknowledged] = await Promise.all([
-    new Promise<PendingMutation | undefined>((resolve, reject) => {
-      const request = readTx.objectStore("outbox").get(mutation.mutationId);
-      request.onsuccess = () => resolve(request.result as PendingMutation | undefined);
-      request.onerror = () => reject(request.error ?? new Error("Unable to read queued mutation"));
-    }),
-    new Promise<string | undefined>((resolve, reject) => {
-      const request = readTx.objectStore("meta").get(acknowledgedKey(mutation.mutationId));
-      request.onsuccess = () => resolve((request.result as { value?: string } | undefined)?.value);
-      request.onerror = () => reject(request.error ?? new Error("Unable to inspect acknowledged mutation"));
-    }),
-  ]);
-  if (acknowledged) {
-    if (acknowledged !== comparable(mutation)) throw new Error("Mutation ID is already acknowledged with a different payload");
-    // Re-enqueueing an identical acknowledged mutation is a safe no-op.
-    return;
-  }
-  if (existing) {
-    if (comparable(existing) !== comparable(mutation)) {
-      throw new Error("Mutation ID is already queued with a different payload");
-    }
-  } else {
-    const tx = db.transaction("outbox", "readwrite");
-    const pending: PendingMutation = {
-      ...mutation,
-      attempts: 0,
-      lastError: null,
-      queuedAt: new Date().toISOString(),
+  // Keep the identity check and write in one readwrite transaction. IndexedDB
+  // serializes readwrite transactions across tabs, so another enqueue/ack cannot
+  // slip between these reads and the conditional write.
+  await atomicTransaction(db, ["outbox", "meta"], (tx, fail) => {
+    const outbox = tx.objectStore("outbox");
+    const meta = tx.objectStore("meta");
+    let existing: PendingMutation | undefined;
+    let acknowledged: string | undefined;
+    let remaining = 2;
+    const maybeFinish = () => {
+      remaining -= 1;
+      if (remaining !== 0) return;
+      if (acknowledged) {
+        if (acknowledged !== comparable(mutation)) {
+          fail(new Error("Mutation ID is already acknowledged with a different payload"));
+          return;
+        }
+        // Re-enqueueing an identical acknowledged mutation is a safe no-op.
+        return;
+      }
+      if (existing) {
+        if (comparable(existing) !== comparable(mutation)) {
+          fail(new Error("Mutation ID is already queued with a different payload"));
+          return;
+        }
+        return;
+      }
+      const pending: PendingMutation = {
+        ...mutation,
+        attempts: 0,
+        lastError: null,
+        queuedAt: new Date().toISOString(),
+      };
+      outbox.put(pending);
     };
-    tx.objectStore("outbox").put(pending);
-    await transactionComplete(tx);
-  }
+    const existingRequest = outbox.get(mutation.mutationId);
+    existingRequest.onsuccess = () => {
+      existing = existingRequest.result as PendingMutation | undefined;
+      maybeFinish();
+    };
+    existingRequest.onerror = () => fail(existingRequest.error ?? new Error("Unable to read queued mutation"));
+    const acknowledgedRequest = meta.get(acknowledgedKey(mutation.mutationId));
+    acknowledgedRequest.onsuccess = () => {
+      acknowledged = (acknowledgedRequest.result as { value?: string } | undefined)?.value;
+      maybeFinish();
+    };
+    acknowledgedRequest.onerror = () => fail(acknowledgedRequest.error ?? new Error("Unable to inspect acknowledged mutation"));
+  });
 }
 
 export async function listPendingMutations(profileId: string, limit?: number): Promise<PendingMutation[]> {
@@ -58,34 +73,78 @@ export async function listPendingMutations(profileId: string, limit?: number): P
 export async function acknowledgeMutations(mutationIds: string[]): Promise<void> {
   if (!mutationIds.length) return;
   const db = await openOfflineDb();
-  const readTx = db.transaction("outbox", "readonly");
-  const pendingRows = await Promise.all(mutationIds.map((mutationId) => new Promise<PendingMutation | undefined>((resolve, reject) => {
-    const request = readTx.objectStore("outbox").get(mutationId);
-    request.onsuccess = () => resolve(request.result as PendingMutation | undefined);
-    request.onerror = () => reject(request.error ?? new Error("Unable to inspect acknowledged mutation"));
-  })));
-  const tx = db.transaction(["outbox", "meta"], "readwrite");
-  const store = tx.objectStore("outbox");
-  const meta = tx.objectStore("meta");
-  mutationIds.forEach((mutationId, index) => {
-    const pending = pendingRows[index];
-    if (pending) meta.put({ key: acknowledgedKey(mutationId), value: comparable(pending) });
-    store.delete(mutationId);
+  await atomicTransaction(db, ["outbox", "meta"], (tx, fail) => {
+    const outbox = tx.objectStore("outbox");
+    const meta = tx.objectStore("meta");
+    const pendingRows = new Map<string, PendingMutation | undefined>();
+    let remaining = mutationIds.length;
+    const maybeFinish = () => {
+      remaining -= 1;
+      if (remaining !== 0) return;
+      for (const mutationId of mutationIds) {
+        const pending = pendingRows.get(mutationId);
+        if (pending) meta.put({ key: acknowledgedKey(mutationId), value: comparable(pending) });
+        outbox.delete(mutationId);
+      }
+    };
+    for (const mutationId of mutationIds) {
+      const request = outbox.get(mutationId);
+      request.onsuccess = () => {
+        pendingRows.set(mutationId, request.result as PendingMutation | undefined);
+        maybeFinish();
+      };
+      request.onerror = () => fail(request.error ?? new Error("Unable to inspect acknowledged mutation"));
+    }
   });
-  await transactionComplete(tx);
 }
 
 export async function markMutationFailed(mutationId: string, error: string, details?: unknown): Promise<void> {
   const db = await openOfflineDb();
-  const readTx = db.transaction("outbox", "readonly");
-  const pending = await new Promise<PendingMutation | undefined>((resolve, reject) => {
-    const request = readTx.objectStore("outbox").get(mutationId);
-    request.onsuccess = () => resolve(request.result as PendingMutation | undefined);
-    request.onerror = () => reject(request.error ?? new Error("Unable to mark queued mutation failed"));
+  await atomicTransaction(db, "outbox", (tx, fail) => {
+    const store = tx.objectStore("outbox");
+    const request = store.get(mutationId);
+    request.onsuccess = () => {
+      const pending = request.result as PendingMutation | undefined;
+      if (pending) store.put({ ...pending, attempts: pending.attempts + 1, lastError: error, lastErrorDetails: details ?? null });
+    };
+    request.onerror = () => fail(request.error ?? new Error("Unable to mark queued mutation failed"));
   });
-  if (!pending) return;
-  const tx = db.transaction("outbox", "readwrite");
-  const store = tx.objectStore("outbox");
-  store.put({ ...pending, attempts: pending.attempts + 1, lastError: error, lastErrorDetails: details ?? null });
-  await transactionComplete(tx);
+}
+
+type TransactionStore = "outbox" | "meta";
+
+/** Run conditional IndexedDB work and commit it as one readwrite transaction. */
+function atomicTransaction(
+  db: IDBDatabase,
+  stores: TransactionStore | TransactionStore[],
+  work: (tx: IDBTransaction, fail: (error: Error) => void) => void,
+): Promise<void> {
+  const tx = db.transaction(stores, "readwrite");
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      try { tx.abort(); } catch { /* transaction may already be complete */ }
+      reject(error);
+    };
+    tx.oncomplete = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    tx.onerror = () => fail(tx.error ?? new Error("IndexedDB transaction failed"));
+    tx.onabort = () => {
+      if (!settled) {
+        settled = true;
+        reject(tx.error ?? new Error("IndexedDB transaction aborted"));
+      }
+    };
+    try {
+      work(tx, fail);
+    } catch (error) {
+      fail(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }

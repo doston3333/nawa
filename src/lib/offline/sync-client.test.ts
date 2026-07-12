@@ -77,3 +77,32 @@ it("does not treat a push cursor as a pulled cursor", async () => {
   expect(await listCachedChanges(profileId)).toHaveLength(1);
   expect(fetchMock).toHaveBeenCalledTimes(3);
 });
+
+it("coalesces overlapping profile synchronizations", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+    changes: [],
+    cursor: "c1",
+    hasMore: false,
+  }), { status: 200 }));
+
+  const first = synchronizeProfile(profileId);
+  const second = synchronizeProfile(profileId);
+  expect(second).toBe(first);
+  await expect(first).resolves.toMatchObject({ pull: { cursor: "c1" } });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("serializes a flush trigger with a concurrent full synchronization", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+    changes: [],
+    cursor: "c2",
+    hasMore: false,
+  }), { status: 200 }));
+
+  const flush = flushOutbox(profileId);
+  const sync = synchronizeProfile(profileId);
+  expect(sync).not.toBe(flush);
+  await expect(flush).resolves.toMatchObject({ pushed: 0 });
+  await expect(sync).resolves.toMatchObject({ pull: { cursor: "c2" } });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
