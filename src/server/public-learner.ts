@@ -6,10 +6,8 @@ import { ensureProfile } from "@/server/repositories/study-repository";
 export const PROFILE_COOKIE = "nawa_profile_id";
 /** Historical cookie name retained so migrated anonymous progress stays reachable. */
 export const LEARNER_COOKIE = "nawa_learner_id";
-
 export const PROFILE_SELECTION_REQUIRED = "PROFILE_SELECTION_REQUIRED" as const;
 
-/** Raised when a cookie cannot be mapped to an explicitly created profile. */
 export class ProfileSelectionRequiredError extends Error {
   readonly code = PROFILE_SELECTION_REQUIRED;
 
@@ -22,12 +20,12 @@ export class ProfileSelectionRequiredError extends Error {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function isPublicDemoEnabled(): boolean {
-  return process.env.ENABLE_PUBLIC_DEMO === "true" || process.env.ENABLE_DEMO_LEARNER === "true";
+function isProfileId(value: string | undefined | null): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
 }
 
-export function isProfileId(value: string | undefined | null): value is string {
-  return typeof value === "string" && UUID_RE.test(value);
+export function isPublicDemoEnabled(): boolean {
+  return process.env.ENABLE_PUBLIC_DEMO === "true" || process.env.ENABLE_DEMO_LEARNER === "true";
 }
 
 function setProfileCookie(jar: Awaited<ReturnType<typeof cookies>>, profileId: string): void {

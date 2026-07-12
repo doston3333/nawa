@@ -140,6 +140,103 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   color: var(--ink-faint);
 }
 
+/* ── Profiles ───────────────────────────────────────── */
+
+.profile-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.25rem;
+}
+
+.profile-card {
+  width: min(100%, 34rem);
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--surface) 92%, white);
+  box-shadow: var(--shadow-soft);
+}
+
+.profile-card h1 {
+  font-family: var(--font-display), Fraunces, Georgia, serif;
+  font-weight: 520;
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin: 0.6rem 0 0.85rem;
+}
+
+.profile-lede {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+}
+
+.profile-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.75rem;
+}
+
+.profile-choice {
+  width: 100%;
+  min-height: 3.2rem;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.profile-choice:hover {
+  border-color: var(--focus);
+  background: var(--sage);
+}
+
+.profile-create {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+
+.profile-create label {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.profile-create-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.profile-create-row input {
+  flex: 1 1 12rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.profile-privacy {
+  margin: 1.5rem 0 0;
+  color: var(--ink-faint);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.profile-error {
+  margin: 1rem 0 0;
+  color: #9b2c2c;
+  font-size: 0.92rem;
+}
+
 .demo-limits {
   margin-top: 1.75rem;
   max-width: 36rem;

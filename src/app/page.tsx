@@ -35,6 +35,9 @@ export default function HomePage() {
         <Link className="secondary-action" href="/study">
           Long study session
         </Link>
+        <Link className="text-action" href="/profiles">
+          Switch profile
+        </Link>
         <p className="home-note">
           Primary flow is the modular path. Use Study Room when you want a full hour shape.
         </p>
