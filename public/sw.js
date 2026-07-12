@@ -1,8 +1,7 @@
-const CACHE_NAME = "nawa-shell-v1";
+const CACHE_NAME = "nawa-shell-v2";
 const SHELL_ASSETS = [
   "/",
-  "/learn",
-  "/study",
+  "/profiles",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -10,18 +9,31 @@ const SHELL_ASSETS = [
 
 const isSameOrigin = (url) => url.origin === self.location.origin;
 const isApiRequest = (url) => url.pathname.startsWith("/api/");
-const isShellAsset = (request, url) =>
+const isCacheableResponse = (response) => response.status === 200 && !response.redirected;
+const isPublicStaticAsset = (request, url) =>
   SHELL_ASSETS.includes(url.pathname) ||
-  request.destination === "script" ||
-  request.destination === "style" ||
-  request.destination === "font" ||
-  request.destination === "image";
+  url.pathname.startsWith("/_next/static/") ||
+  url.pathname.startsWith("/icons/") ||
+  url.pathname.startsWith("/fonts/") ||
+  (request.destination === "script" && url.pathname.startsWith("/_next/")) ||
+  (request.destination === "style" && url.pathname.startsWith("/_next/")) ||
+  (request.destination === "font" && url.pathname.startsWith("/_next/"));
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => Promise.all(SHELL_ASSETS.map((asset) => cache.add(asset).catch(() => undefined))))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Only public shell/static resources belong in Cache Storage. Profile data is
+      // cookie-dependent and is persisted by the profile-scoped IndexedDB layer.
+      for (const asset of SHELL_ASSETS) {
+        const response = await fetch(asset, { credentials: "same-origin" });
+        // A redirect can be a profile picker/login response. Never cache it under
+        // the requested public URL, and let network failures fail installation so
+        // the browser can retry rather than activating an empty shell.
+        if (isCacheableResponse(response)) {
+          await cache.put(asset, response.clone());
+        }
+      }
+    })
       .then(() => self.skipWaiting()),
   );
 });
@@ -46,22 +58,20 @@ const cacheFirst = async (request) => {
   if (cached) return cached;
 
   const response = await fetch(request);
-  if (response.ok) {
+  if (isCacheableResponse(response)) {
     const cache = await caches.open(CACHE_NAME);
     await cache.put(request, response.clone());
   }
   return response;
 };
 
-const networkFirst = async (request) => {
+const networkOnly = async (request) => {
   try {
-    const response = await fetch(request);
-    // API responses are profile-scoped. Do not persist them in a shared cache: the
-    // shell remains offline-capable while profile data stays behind the sync layer.
-    return response;
+    return await fetch(request);
   } catch {
-    const cached = await caches.match(request);
-    return cached ?? new Response("Offline", { status: 503, statusText: "Offline" });
+    // Profile APIs are deliberately not read from Cache Storage. The UI reads
+    // previously loaded profile data from profile-scoped IndexedDB instead.
+    return new Response("Offline", { status: 503, statusText: "Offline" });
   }
 };
 
@@ -74,11 +84,11 @@ self.addEventListener("fetch", (event) => {
   if (!isSameOrigin(url)) return;
 
   if (isApiRequest(url)) {
-    event.respondWith(networkFirst(request));
+    event.respondWith(networkOnly(request));
     return;
   }
 
-  if (isShellAsset(request, url)) {
+  if (isPublicStaticAsset(request, url)) {
     event.respondWith(cacheFirst(request));
   }
 });

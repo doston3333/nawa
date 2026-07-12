@@ -24,6 +24,20 @@ describe("ServiceWorkerRegistration", () => {
     expect(register).toHaveBeenCalledTimes(1);
   });
 
+  it("does not register when the production gate is disabled", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_SW", "false");
+    const register = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { register },
+    });
+
+    render(<ServiceWorkerRegistration />);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(register).not.toHaveBeenCalled();
+  });
+
   it("does nothing when service workers are unavailable", async () => {
     vi.stubEnv("NEXT_PUBLIC_ENABLE_SW", "true");
     Object.defineProperty(navigator, "serviceWorker", {
