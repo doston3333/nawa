@@ -35,4 +35,4 @@ Commands run:
 
 ## Commit
 
-Commit: `0397691 feat: add profile ownership and sync ledger`
+Implementation commit: `eb7d90a feat: add profile ownership and sync ledger`
