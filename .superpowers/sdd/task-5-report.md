@@ -16,6 +16,7 @@ Implemented the Task 5 offline boundary for lessons and Study Room sessions.
 
 - `82dbe59 feat: make learning sessions offline-safe`
 - `097d451 fix: harden offline session restore coverage`
+- `5e647de fix: expose lesson start connectivity state`
 
 ## Verification (2026-07-12)
 
