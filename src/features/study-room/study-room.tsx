@@ -6,6 +6,7 @@ import { StageRail } from "./stage-rail";
 import { TaskCard } from "./task-card";
 import { ProgressSummary } from "./progress-summary";
 import { useStudySession } from "./use-study-session";
+import { SyncStatus } from "@/features/offline/sync-status";
 
 const stageLabels = {
   ARRIVAL: "Arrival",
@@ -128,6 +129,7 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
               <span className="study-canvas-minutes-value">{task.estimatedMinutes} min</span>
             </p>
           </div>
+          <SyncStatus profileId={session.view.plan.profileId} />
           {resetNote ? <p className="reset-note" role="status">{resetNote}</p> : null}
         </header>
 

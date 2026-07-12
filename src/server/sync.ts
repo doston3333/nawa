@@ -276,14 +276,27 @@ async function applyStudyAttempt(mutation: SyncMutationInput, tx: Prisma.Transac
   const sessionId = asString(payload.sessionId, "sessionId");
   const taskId = asString(payload.taskId, "taskId");
   const nextTaskIndex = asNonNegativeInt(payload.nextTaskIndex, "nextTaskIndex");
-  const event = asRecord(payload.event) as unknown as EvidenceEvent;
-  if (event.profileId !== mutation.profileId) throw new Error("Attempt does not belong to the active profile");
   const session = await tx.studySession.findUnique({ where: { id: sessionId } });
   if (!session || session.profileId !== mutation.profileId) throw new Error("Session does not belong to this profile");
   const plan = session.plan as unknown as SessionPlan;
   const taskIndex = plan.tasks.findIndex((task) => task.id === taskId);
   if (taskIndex < 0) throw new Error("taskId is not part of the stored session plan");
   if (nextTaskIndex > plan.tasks.length) throw new Error("nextTaskIndex is outside the session plan");
+  const event = payload.event === null ? null : asRecord(payload.event) as unknown as EvidenceEvent;
+  if (!event) {
+    const isReplayPosition = nextTaskIndex === session.currentTaskIndex;
+    const isNextPosition = nextTaskIndex === session.currentTaskIndex + 1 && taskIndex === session.currentTaskIndex;
+    if (!isReplayPosition && !isNextPosition) throw new Error("nextTaskIndex must be the current task or advance exactly one task");
+    if (!isReplayPosition) await advanceSessionWithinTransaction(sessionId, nextTaskIndex, mutation.profileId, tx);
+    const liveSession = await tx.studySession.findUnique({ where: { id: sessionId }, select: { currentTaskIndex: true, status: true } });
+    return {
+      mastery: null,
+      lesson: null,
+      status: liveSession?.status ?? "ACTIVE",
+      nextTaskIndex: liveSession?.currentTaskIndex ?? nextTaskIndex,
+    };
+  }
+  if (event.profileId !== mutation.profileId) throw new Error("Attempt does not belong to the active profile");
   const priorEvent = await tx.evidenceEvent.findUnique({ where: { id: event.id }, select: { profileId: true, sessionId: true, taskId: true } });
   const isReplayPosition = Boolean(priorEvent) && nextTaskIndex === session.currentTaskIndex && taskIndex === nextTaskIndex - 1;
   const isNextPosition = nextTaskIndex === session.currentTaskIndex + 1 && taskIndex === session.currentTaskIndex;

@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Ability, EvidenceEvent, SessionTask, StudySessionView } from "@/domain/learning/types";
 import type { TaskSubmission } from "./task-card";
+import { buildAttemptMutation, httpError, isNetworkFailure, notifyOfflineChange, readActiveProfileId } from "@/features/offline/attempt-mutation";
+import { enqueueMutation } from "@/lib/offline/outbox";
+import { getDeviceId } from "@/lib/offline/sync-client";
+import { cacheSession, listCachedSessions } from "@/lib/offline/profile-cache";
 
 const abilityForStage: Partial<Record<SessionTask["stage"], Ability>> = {
   RETRIEVAL: "WRITING", NEW_CONCEPT: "WRITING", INPUT: "READING", OUTPUT: "WRITING",
@@ -49,10 +53,35 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error ?? "Unable to load your study session");
         if (!active) return;
-        setView(body as StudySessionView);
+        const nextView = body as StudySessionView;
+        await cacheSession(nextView.plan.profileId, { id: nextView.plan.id, ...nextView }).catch(() => undefined);
+        setView(nextView);
         setError(null);
       } catch (reason: unknown) {
         if (!active || controller.signal.aborted) return;
+        const profileId = readActiveProfileId();
+        if (isNetworkFailure(reason) && profileId) {
+          void listCachedSessions(profileId).then((rows) => {
+            const cached = rows.find((row) => {
+              const plan = row.plan as StudySessionView["plan"] | undefined;
+              return plan?.durationMinutes === durationMinutes && plan.mode !== "LESSON";
+            });
+            if (!active || controller.signal.aborted) return;
+            if (cached) {
+              setView(cached as unknown as StudySessionView);
+              setError(null);
+            } else {
+              setError("Internet required to start a study session");
+            }
+            setLoading(false);
+          }).catch(() => {
+            if (active && !controller.signal.aborted) {
+              setError("Internet required to start a study session");
+              setLoading(false);
+            }
+          });
+          return;
+        }
         setError(reason instanceof Error ? reason.message : "Unable to load your study session");
       } finally {
         if (active) setLoading(false);
@@ -75,27 +104,56 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
     if (!view || !currentTask) return;
     setSubmitting(true);
     setError(null);
+    const nextTaskIndex = view.currentTaskIndex + 1;
+    const event = buildEvidence(currentTask, submission, view.plan.profileId);
     try {
-      const nextTaskIndex = view.currentTaskIndex + 1;
       const response = await fetch(`/api/study/sessions/${view.plan.id}/attempts`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           taskId: currentTask.id,
           nextTaskIndex,
-          event: buildEvidence(currentTask, submission, view.plan.profileId),
+          event,
         }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Unable to save this attempt");
-      setCounts(body.counts);
-      setView({
+      if (!response.ok) throw httpError(body.error ?? "Unable to save this attempt", response.status);
+      if (body.counts) setCounts(body.counts);
+      const nextView: StudySessionView = {
         ...view,
+        plan: (body.plan as StudySessionView["plan"] | undefined) ?? view.plan,
         currentTaskIndex: nextTaskIndex,
-        status: nextTaskIndex >= view.plan.tasks.length ? "COMPLETE" : "ACTIVE",
-      });
+        status: body.status ?? (nextTaskIndex >= view.plan.tasks.length ? "COMPLETE" : "ACTIVE"),
+      };
+      setView(nextView);
+      void cacheSession(view.plan.profileId, { id: view.plan.id, ...nextView }).catch(() => undefined);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to save this attempt");
+      if (isNetworkFailure(reason)) {
+        try {
+          const mutation = buildAttemptMutation({
+            profileId: view.plan.profileId,
+            deviceId: await getDeviceId(view.plan.profileId),
+            sessionId: view.plan.id,
+            taskId: currentTask.id,
+            nextTaskIndex,
+            event,
+          });
+          await enqueueMutation(mutation);
+          const nextView: StudySessionView = {
+            ...view,
+            currentTaskIndex: nextTaskIndex,
+            status: nextTaskIndex >= view.plan.tasks.length ? "COMPLETE" : "ACTIVE",
+          };
+          setView(nextView);
+          await cacheSession(view.plan.profileId, { id: view.plan.id, ...nextView });
+          notifyOfflineChange();
+          setError(null);
+        } catch (offlineError) {
+          setError(offlineError instanceof Error ? offlineError.message : "Unable to save this attempt locally");
+        }
+      } else {
+        setError(reason instanceof Error ? reason.message : "Unable to save this attempt");
+      }
     } finally {
       setSubmitting(false);
     }

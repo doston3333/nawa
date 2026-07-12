@@ -24,6 +24,29 @@ export function cacheSession(profileId: string, session: Record<string, unknown>
   return putRecord("sessions", session, profileId);
 }
 
+export async function readCachedSession(profileId: string, sessionId: string): Promise<Record<string, unknown> | undefined> {
+  const db = await openOfflineDb();
+  const tx = db.transaction("sessions", "readonly");
+  return await new Promise<Record<string, unknown> | undefined>((resolve, reject) => {
+    const request = tx.objectStore("sessions").get(sessionId);
+    request.onsuccess = () => {
+      const row = request.result as Record<string, unknown> | undefined;
+      resolve(row?.profileId === profileId ? row : undefined);
+    };
+    request.onerror = () => reject(request.error ?? new Error("Unable to read cached session"));
+  });
+}
+
+export async function listCachedSessions(profileId: string): Promise<Record<string, unknown>[]> {
+  const db = await openOfflineDb();
+  const tx = db.transaction("sessions", "readonly");
+  return await new Promise<Record<string, unknown>[]>((resolve, reject) => {
+    const request = tx.objectStore("sessions").index("profileId").getAll(profileId);
+    request.onsuccess = () => resolve(request.result as Record<string, unknown>[]);
+    request.onerror = () => reject(request.error ?? new Error("Unable to list cached sessions"));
+  });
+}
+
 export function cacheProgress(profileId: string, progress: Record<string, unknown>): Promise<void> {
   return putRecord("progress", progress, profileId);
 }

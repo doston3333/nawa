@@ -6,6 +6,7 @@ import { TaskCard } from "@/features/study-room/task-card";
 import { ProgressSummary } from "@/features/study-room/progress-summary";
 import { LessonTips } from "./lesson-tips";
 import { useLessonSession } from "./use-lesson-session";
+import { SyncStatus } from "@/features/offline/sync-status";
 
 export function LessonRunner({ lessonId, title }: { lessonId: string; title?: string }) {
   const session = useLessonSession(lessonId);
@@ -100,6 +101,7 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
           Exercise {index + 1} of {total}
           {isCheckpoint ? " · scored mini-test" : ""}
         </p>
+        <SyncStatus profileId={session.view.plan.profileId} />
         <div className="lesson-progress-track" aria-hidden="true">
           <div className="lesson-progress-fill" style={{ width: `${pct}%` }} />
         </div>

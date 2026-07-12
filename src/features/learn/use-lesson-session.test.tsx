@@ -1,0 +1,88 @@
+import "fake-indexeddb/auto";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import type { StudySessionView } from "@/domain/learning/types";
+import { closeOfflineDb, DB_NAME } from "@/lib/offline/indexed-db";
+import { listPendingMutations } from "@/lib/offline/outbox";
+import { useLessonSession } from "./use-lesson-session";
+
+const profileId = "00000000-0000-4000-8000-000000000010";
+const sessionView: StudySessionView = {
+  currentTaskIndex: 0,
+  status: "ACTIVE",
+  plan: {
+    id: "00000000-0000-4000-8000-000000000100",
+    profileId,
+    durationMinutes: 30,
+    createdAt: "2026-07-11T10:00:00.000Z",
+    mode: "LESSON",
+    lessonId: "letters-1",
+    tasks: [{
+      id: "task-1",
+      stage: "LESSON",
+      kind: "LESSON",
+      atomIds: ["letter-ba"],
+      prompt: "Write ba",
+      promptArabic: "بَ",
+      expectedAnswer: "ب",
+      estimatedMinutes: 2,
+      responseMode: "TYPE",
+    }],
+  },
+};
+
+beforeEach(async () => {
+  vi.restoreAllMocks();
+  Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+  await closeOfflineDb();
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => resolve();
+  });
+});
+
+it("advances locally and queues an attempt when the network is unavailable", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(new Response(JSON.stringify(sessionView), { status: 201 }))
+    .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+  const session = renderHook(() => useLessonSession("letters-1"));
+  await waitFor(() => expect(session.result.current.currentTask).not.toBeNull());
+
+  await act(async () => {
+    await session.result.current.submitAttempt({
+      answer: "ب",
+      helpLevel: 0,
+      attempted: true,
+      startedAt: new Date().toISOString(),
+      confidence: 4,
+    });
+  });
+
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(session.result.current.view?.currentTaskIndex).toBe(1);
+  expect(await listPendingMutations(profileId)).toHaveLength(1);
+});
+
+it("keeps the task in place for a server validation error", async () => {
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(new Response(JSON.stringify(sessionView), { status: 201 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ error: "Invalid attempt payload" }), { status: 400 }));
+  const session = renderHook(() => useLessonSession("letters-1"));
+  await waitFor(() => expect(session.result.current.currentTask).not.toBeNull());
+
+  await act(async () => {
+    await session.result.current.submitAttempt({
+      answer: "ب",
+      helpLevel: 0,
+      attempted: true,
+      startedAt: new Date().toISOString(),
+      confidence: 4,
+    });
+  });
+
+  expect(session.result.current.view?.currentTaskIndex).toBe(0);
+  expect(session.result.current.error).toBe("Invalid attempt payload");
+  expect(await listPendingMutations(profileId)).toHaveLength(0);
+});

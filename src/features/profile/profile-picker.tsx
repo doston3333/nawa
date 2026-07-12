@@ -26,6 +26,12 @@ export function ProfilePicker({ initialProfiles }: ProfilePickerProps) {
       });
       const body = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Unable to select profile");
+      try {
+        window.localStorage.setItem("nawa_active_profile_id", profileId);
+      } catch {
+        // Some test/embedded environments disable browser storage. The
+        // httpOnly profile cookie remains authoritative in that case.
+      }
       router.push("/");
       router.refresh();
     } catch (reason) {
