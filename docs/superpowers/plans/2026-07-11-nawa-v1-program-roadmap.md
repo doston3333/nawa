@@ -45,7 +45,7 @@ Status: planned after Milestone 2.
 
 ### Milestone 4 — Operations and documentation
 
-Status: in progress with this runbook update.
+Status: delivered and verified on 2026-07-12.
 
 - Local production Compose stack with persistent PostgreSQL and `.data` storage.
 - Verified backup and restore commands for the database dump and uploaded originals.

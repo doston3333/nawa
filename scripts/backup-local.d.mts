@@ -1,4 +1,5 @@
-export function createBackup(options?: { cwd?: string; now?: Date; dryRun?: boolean }): Promise<{
+export function hashFile(path: string): Promise<string>;
+export function createBackup(options?: { cwd?: string; now?: Date; dryRun?: boolean; commandRunner?: (command: string, args: string[]) => Promise<void> }): Promise<{
   destination: string;
   dumpPath?: string;
   uploads?: string;

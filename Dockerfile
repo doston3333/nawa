@@ -15,6 +15,9 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Prisma's config validates DATABASE_URL while generating the client during
+# the image build. Runtime Compose/VPS configuration replaces this value.
+ENV DATABASE_URL=postgresql://nawa:nawa_local@localhost:5439/nawa
 RUN pnpm rebuild && pnpm db:generate && pnpm build
 
 FROM base AS runner
@@ -45,7 +48,10 @@ COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x /app/docker-entrypoint.sh
 
-USER nextjs
+# The Compose data directory is a bind mount. Start as root so the mounted
+# directory can be handed to the unprivileged runtime user in the entrypoint.
+# The entrypoint drops privileges before migrations and the Next.js server run.
+USER root
 EXPOSE 3000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

@@ -1,3 +1,5 @@
+import "dotenv/config";
+import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -6,11 +8,15 @@ import { spawn } from "node:child_process";
 export function isLocalDatabaseUrl(value) {
   try {
     const parsed = new URL(value);
-    const host = parsed.hostname.toLowerCase();
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "db";
   } catch {
     return false;
   }
+}
+
+async function hashFile(path) {
+  return createHash("sha256").update(await readFile(path)).digest("hex");
 }
 
 export async function validateBackupDirectory(backupDirectory) {
@@ -37,6 +43,13 @@ export async function validateBackupDirectory(backupDirectory) {
   }
   if (!dumpStat.isFile()) throw new Error(`Backup dump is not a file: ${dumpPath}`);
   if (!uploadsStat.isDirectory()) throw new Error(`Backup uploads directory is missing: ${uploadsPath}`);
+  if (typeof manifest.databaseDumpSha256 !== "string" || !/^[a-f0-9]{64}$/i.test(manifest.databaseDumpSha256)) {
+    throw new Error("Backup manifest is missing a valid databaseDumpSha256");
+  }
+  const actualHash = await hashFile(dumpPath);
+  if (actualHash.toLowerCase() !== manifest.databaseDumpSha256.toLowerCase()) {
+    throw new Error(`Backup database dump checksum mismatch: expected ${manifest.databaseDumpSha256}, got ${actualHash}`);
+  }
   return { directory, manifest, dumpPath, uploadsPath };
 }
 
@@ -51,16 +64,17 @@ async function runCommand(command, args) {
   });
 }
 
-export async function restoreBackup(backupDirectory, { cwd = process.cwd(), dryRun = false } = {}) {
+export async function restoreBackup(backupDirectory, { cwd = process.cwd(), dryRun = false, commandRunner = runCommand } = {}) {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
   if (!isLocalDatabaseUrl(databaseUrl) && process.env.ALLOW_RESTORE !== "true") {
     throw new Error("Refusing to restore a non-local DATABASE_URL; set ALLOW_RESTORE=true to continue");
   }
   const backup = await validateBackupDirectory(backupDirectory);
-  const uploadsDir = resolve(process.env.NAWA_UPLOADS_DIR || join(cwd, ".data", "uploads"));
+  const dataDir = resolve(process.env.NAWA_DATA_DIR || join(cwd, ".data"));
+  const uploadsDir = resolve(process.env.NAWA_UPLOADS_DIR || join(dataDir, "uploads"));
   if (dryRun) return { ...backup, uploadsDir, databaseUrl };
-  await runCommand("psql", ["--set", "ON_ERROR_STOP=1", "--dbname", databaseUrl, "--file", backup.dumpPath]);
+  await commandRunner("psql", ["--set", "ON_ERROR_STOP=1", "--dbname", databaseUrl, "--file", backup.dumpPath]);
   await mkdir(dirname(uploadsDir), { recursive: true });
   await rm(uploadsDir, { recursive: true, force: true });
   await cp(backup.uploadsPath, uploadsDir, { recursive: true });

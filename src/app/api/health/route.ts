@@ -13,7 +13,10 @@ export async function GET() {
   }
 
   const demo = isPublicDemoEnabled();
-  const ok = dbOk && demo;
+  // Health is an operational readiness signal. The legacy demo flag is
+  // informational only; private named-profile deployments intentionally keep
+  // it disabled and must still report healthy when the database is ready.
+  const ok = dbOk;
   if (!ok) logEvent("health_degraded", { db: dbOk, demo });
 
   return NextResponse.json(

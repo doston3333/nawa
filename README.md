@@ -20,7 +20,9 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Open <http://localhost:3000>, choose or create a profile at `/profiles`, and keep the browser on the private machine or network. The database is published on port `5439` for local maintenance. PostgreSQL data is in the `nawa_postgres` volume; uploaded originals and backup files are in `.data/` on the host.
+Open <http://localhost:3000>, choose or create a profile at `/profiles`, and keep the browser on the private machine or network. The database is published only on `127.0.0.1:5439` for local maintenance. PostgreSQL data is in the explicitly named `nawa_postgres` volume; uploaded originals and backup files are in `.data/` on the host. On Linux, the app initializes this private bind mount for UID 1001 and keeps it writable for the operator account so host-side backup commands continue to work.
+
+For a VPS, set `NEXT_PUBLIC_SITE_URL` in `.env` to the HTTPS URL behind the reverse proxy before building the app. This keeps secure profile cookies aligned with the deployed origin.
 
 For a faster development loop, run only PostgreSQL in Compose and run Next.js on the host:
 
@@ -60,6 +62,8 @@ pnpm backup:local
 pnpm restore:local -- .data/backups/<UTC-timestamp>
 ```
 
+The host commands require PostgreSQL 17-compatible client tools (`pg_dump` and `psql`) on `PATH` (for example, `brew install libpq` on macOS). The `postgres:17-bookworm` database image contains matching tools for operators who prefer to run a Compose-side dump/restore; keep the dump stream on the host and do not use a client from an older major version.
+
 Restore validates the manifest, dump, and uploads directory before changing anything. It refuses a non-local database URL; for an explicitly approved VPS restore, set `ALLOW_RESTORE=true` in the command environment. Test the safety checks without running `pg_dump` or `psql`:
 
 ```bash
@@ -71,7 +75,7 @@ Keep at least one backup outside the machine running Nawa. A restore replaces th
 
 ## Updates, rollback, and later VPS deployment
 
-The same Compose stack is the reference for a later single-VPS deployment. Put a reverse proxy with HTTPS and access control in front of port 3000, keep PostgreSQL and `.data` on persistent disks, and do not publish PostgreSQL directly. Before an update:
+The same Compose stack is the reference for a later single-VPS deployment. Put a reverse proxy with HTTPS and access control in front of port 3000, keep PostgreSQL and `.data` on persistent disks, and keep PostgreSQL bound to loopback (never publish it beyond the VPS). Before an update:
 
 ```bash
 pnpm backup:local
@@ -94,7 +98,7 @@ pnpm test:e2e
 git diff --check
 ```
 
-`pnpm test:e2e` requires the database and a running app. The health endpoint reports database readiness and the legacy demo compatibility flag; named profile selection remains explicit in the active UI and routes.
+`pnpm test:e2e` requires the database and a running app. The health endpoint reports database readiness and includes the legacy demo compatibility flag for observability; the flag is disabled by default and named profile selection remains explicit in the active UI and routes.
 
 ## Documentation status
 

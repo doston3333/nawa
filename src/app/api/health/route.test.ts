@@ -7,7 +7,7 @@ vi.mock("@/server/db", () => ({
 }));
 
 vi.mock("@/server/public-learner", () => ({
-  isPublicDemoEnabled: () => true,
+  isPublicDemoEnabled: () => false,
 }));
 
 beforeEach(() => {
@@ -15,9 +15,9 @@ beforeEach(() => {
   queryRaw.mockResolvedValue([{ "?column?": 1 }]);
 });
 
-it("reports healthy when database and demo mode are up", async () => {
+it("reports healthy when the database is up even with legacy demo mode disabled", async () => {
   const { GET } = await import("./route");
   const response = await GET();
   expect(response.status).toBe(200);
-  await expect(response.json()).resolves.toMatchObject({ ok: true, db: true, demo: true });
+  await expect(response.json()).resolves.toMatchObject({ ok: true, db: true, demo: false });
 });
