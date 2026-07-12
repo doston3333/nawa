@@ -30,7 +30,10 @@ const VARIANTS: readonly StepKind[] = [
 ];
 
 function exercise(id: string, prompt: string, answer: string, policy: AcceptedAnswerPolicy = "NORMALIZED_ARABIC"): ExerciseDefinition {
-  return { id, prompt, choices: [answer, "ا", "ب", "ت"], acceptedAnswer: { policy, values: [answer] } };
+  const choices = [answer, "ا", "ب", "ت", "ث"]
+    .filter((choice, index, all) => all.indexOf(choice) === index)
+    .slice(0, 4);
+  return { id, prompt, choices, acceptedAnswer: { policy, values: [answer] } };
 }
 
 function step(unitId: string, lessonOrder: number, stepOrder: number, arabic: string): LessonStep {

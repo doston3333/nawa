@@ -57,3 +57,12 @@ it("rejects duplicate or out-of-order unit and lesson orders", () => {
   unorderedLesson.units[0]!.lessons[1]!.order = 0;
   expect(() => validateCourseCatalog(unorderedLesson)).toThrow("lesson order must be strictly increasing");
 });
+
+it("publishes unique selectable answers for every course exercise", () => {
+  for (const lesson of ACTIVE_COURSE.units.flatMap((unit) => unit.lessons)) {
+    for (const step of lesson.steps) {
+      const choices = step.exercise?.choices ?? [];
+      expect(new Set(choices).size, `${step.id} has duplicate choices`).toBe(choices.length);
+    }
+  }
+});
