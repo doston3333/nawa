@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nawa
+      POSTGRES_USER: nawa
+      POSTGRES_PASSWORD: nawa_local
+    ports:
+      - "5439:5432"
+    volumes:
+      - nawa_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nawa -d nawa"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://nawa:nawa_local@db:5432/nawa
+      # Kept for the existing health contract; active routes still require
+      # an explicitly selected named profile and never create one implicitly.
+      ENABLE_PUBLIC_DEMO: "true"
+      NAWA_DATA_DIR: /app/.data
+      NAWA_UPLOADS_DIR: /app/.data/uploads
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./.data:/app/.data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  nawa_postgres:

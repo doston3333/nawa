@@ -1,91 +1,87 @@
 # Nawa
 
-Nawa is a serious Modern Standard Arabic learning notebook. This repository ships a **public Study Room demo**: focused 30–60 minute sessions with ability-specific progress, no gamification.
+Nawa is a private, personal Modern Standard Arabic reading and writing workspace for two or three people. Each person selects a named, passwordless profile. Profiles are separate, and the same profile can be opened on more than one device.
 
-Open the app → **Continue path** → short modular lessons (unit → lesson). Optional long Study Room at `/study`. No account required.
-
-## What visitors get
-
-- Isolated browser learner (httpOnly cookie) — concurrent visitors do not share sessions
-- Six-stage Study Room: Arrival → Retrieval → New concept → Input → Output → Close
-- Beginner MSA spine (full abjad + ~200 words/phrases/grammar) and immutable evidence → mastery
-- Transparent reading / listening / writing / speaking counts at session end
+The application is local-first. Previously opened learning shells and lesson data remain usable without a connection. Offline lesson progress is saved in the browser outbox and synchronizes once when the browser reconnects. Ordinary reading and writing never wait for an AI service. OCR, translation, contextual Arabic analysis, and future PDF/image processing are explicitly online-only actions.
 
 ## Prerequisites
 
 - Node.js 24+
 - pnpm 10
-- PostgreSQL 17 (local Docker Compose provided)
+- Docker Desktop or Docker Engine with Compose
 
-## Local setup
+## Local production stack
+
+The reference local stack runs the production image, PostgreSQL, and persistent application data:
 
 ```bash
 cp .env.example .env
+docker compose up --build -d
+docker compose ps
+```
+
+Open <http://localhost:3000>, choose or create a profile at `/profiles`, and keep the browser on the private machine or network. The database is published on port `5439` for local maintenance. PostgreSQL data is in the `nawa_postgres` volume; uploaded originals and backup files are in `.data/` on the host.
+
+For a faster development loop, run only PostgreSQL in Compose and run Next.js on the host:
+
+```bash
 docker compose up -d db
 pnpm install
-pnpm db:prepare   # generate client, migrate, seed curriculum
+pnpm db:prepare
 pnpm dev
 ```
 
-Open <http://localhost:3000>.
+## Profiles, offline use, and sync
 
-### Environment variables
+Profiles have names but no passwords. This is a convenience boundary for a trusted household, not protection against a hostile user. Do not expose the app directly to the public internet; use a private LAN, VPN, or an access-controlled reverse proxy.
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `DATABASE_URL` | yes | PostgreSQL connection string |
-| `ENABLE_PUBLIC_DEMO` | yes (`true`) | Cookie-isolated public learners |
-| `ENABLE_DEMO_LEARNER` | optional | Legacy alias for public demo mode |
-| `NEXT_PUBLIC_SITE_URL` | production | Canonical site URL for metadata |
-| `DEMO_LEARNER_ID` | no | Legacy seed helper only |
+The visible sync status is intentionally simple:
 
-## Production / public demo
+- `Synced`: no pending local changes are known.
+- `Saved locally · waiting to sync`: a lesson change is safe in this browser and is queued for the next connection.
+- `Sync needs attention`: a server rejection or conflict needs review; the local outbox is retained.
+- `Internet required for this action`: the selected operation is OCR, translation, or contextual AI analysis.
 
-### One-time database
+The service worker caches only previously successful learning shells. It never intercepts mutation requests. IndexedDB is profile-scoped, so switching profiles does not expose another person's cached progress. A stable mutation ID makes a retry idempotent: reconnecting cannot duplicate evidence or advance a lesson twice.
 
-```bash
-export DATABASE_URL=postgresql://...
-export ENABLE_PUBLIC_DEMO=true
-pnpm db:prepare
-pnpm build
-pnpm start
-```
+## Imports and AI boundary
 
-### Vercel + managed Postgres
+The personal reading/writing scope accepts pasted text, PDFs, images, and scans in the later Reader milestone. The original source is preserved separately from extracted or translated text. Local reading and editing work offline; OCR, translation, and contextual analysis require an internet connection and must fail without replacing the original.
 
-1. Create a Vercel project from this repo (`vercel.json` included).
-2. Attach Neon / Supabase / Vercel Postgres; set `DATABASE_URL`.
-3. Set `ENABLE_PUBLIC_DEMO=true` and `NEXT_PUBLIC_SITE_URL=https://your-domain`.
-4. After first deploy, run migrations once (Vercel build already runs `prisma generate`):
+Speech, listening assessment, audio, pronunciation coaching, handwriting analysis, a general chat tutor, public-scale accounts, and distributed rate limiting are not part of this product. The existing process-local rate limit remains only as an accidental-abuse guard for one private process.
 
-   ```bash
-   DATABASE_URL=... pnpm db:migrate:deploy
-   DATABASE_URL=... pnpm db:seed
-   ```
+## Backups and restore
 
-   Or use the host’s one-off job / release command: `pnpm db:prepare`.
-
-### Container (Fly / Railway / Render)
+Backups include PostgreSQL and the persistent originals directory. Set `DATABASE_URL` to the local database (the Compose default is already in `.env`):
 
 ```bash
-# build
-docker build -t nawa .
-
-# run (example — Postgres must be reachable from the container)
-docker run --rm -p 3000:3000 \
-  -e DATABASE_URL=postgresql://user:pass@host:5432/nawa \
-  -e ENABLE_PUBLIC_DEMO=true \
-  -e NEXT_PUBLIC_SITE_URL=https://your-app.example.com \
-  nawa
+pnpm backup:local
+# writes .data/backups/<UTC-timestamp>/{manifest.json,nawa.sql,uploads/}
+pnpm restore:local -- .data/backups/<UTC-timestamp>
 ```
 
-`docker-entrypoint.sh` runs as user `nextjs` with a writable `$HOME`, applies `prisma migrate deploy`, seeds curriculum, then starts Next with:
+Restore validates the manifest, dump, and uploads directory before changing anything. It refuses a non-local database URL; for an explicitly approved VPS restore, set `ALLOW_RESTORE=true` in the command environment. Test the safety checks without running `pg_dump` or `psql`:
 
-`node node_modules/next/dist/bin/next start`
+```bash
+pnpm backup:local -- --dry-run
+pnpm restore:local -- .data/backups/<UTC-timestamp> --dry-run
+```
 
-(Prisma client is generated at **image build** time; the container does not re-run `prisma generate`.)
+Keep at least one backup outside the machine running Nawa. A restore replaces the target uploads directory after the database dump succeeds. The original source files remain the source of truth for later OCR or translation retries.
 
-Fly.io: see `fly.toml`. Create the app, attach Postgres, set secrets, then `fly deploy`.
+## Updates, rollback, and later VPS deployment
+
+The same Compose stack is the reference for a later single-VPS deployment. Put a reverse proxy with HTTPS and access control in front of port 3000, keep PostgreSQL and `.data` on persistent disks, and do not publish PostgreSQL directly. Before an update:
+
+```bash
+pnpm backup:local
+docker compose build app
+docker compose up -d app
+docker compose ps
+curl -fsS http://localhost:3000/api/health
+```
+
+For rollback, stop the app, check out the previously known-good revision, rebuild the image, and start it again. Restore the most recent backup only when data was damaged; a code rollback does not require a database reset when migrations are backward-compatible.
 
 ## Verification
 
@@ -94,35 +90,12 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm build
-pnpm test:e2e   # requires Playwright browsers + running DB
-curl -s http://localhost:3000/api/health
+pnpm test:e2e
+git diff --check
 ```
 
-## Runbook (public demo)
+`pnpm test:e2e` requires the database and a running app. The health endpoint reports database readiness and the legacy demo compatibility flag; named profile selection remains explicit in the active UI and routes.
 
-| Symptom | Check | Action |
-|---------|--------|--------|
-| Health 503 / “demo unavailable” | `GET /api/health` → `db` / `demo` | Fix `DATABASE_URL`; set `ENABLE_PUBLIC_DEMO=true` |
-| Migrate failed on boot | Container logs `prisma migrate deploy` | Apply migrations manually: `pnpm db:migrate:deploy` |
-| Users get 429 | Logs `rate_limited` | Expected under abuse; limits are process-local (10 starts/IP/hr, 120 attempts/learner/hr) |
-| “Lost progress” after new browser | Cookie `nawa_learner_id` | Expected — anonymous demo; use Reset notebook for intentional clean start |
-| Session start 503 | Logs `session_start_failed` | DB connectivity / demo flag |
+## Documentation status
 
-Structured logs are JSON lines on stdout (`session_started`, `attempt_recorded`, `session_completed`, `rate_limited`).
-
-## Program boundary
-
-This is the **foundation Study Room vertical slice**, expanded with:
-
-- ~200-atom beginner MSA spine (full letters + dense lexicon) + varied session content  
-- Cookie isolation, rate limits, reset notebook  
-- Language Ink lite (in-session micro-panel only)  
-- Health endpoint + structured logs  
-
-Still later:
-
-- Plan 2: accounts, offline sync  
-- Plan 3: Notebook, Reader, full Language Ink notes  
-- Plan 4: speech / handwriting / bounded tutor  
-
-See `docs/superpowers/plans/2026-07-11-nawa-v1-program-roadmap.md`.
+The original foundation plan is retained as a historical implementation record. Its unchecked boxes describe how the first Study Room slice was built; they are not a current backlog. The approved personal reading/writing design is [2026-07-12-nawa-personal-reading-writing-system-design.md](docs/superpowers/specs/2026-07-12-nawa-personal-reading-writing-system-design.md), and the current delivery plan is [2026-07-12-nawa-profiles-offline-sync.md](docs/superpowers/plans/2026-07-12-nawa-profiles-offline-sync.md). The roadmap lists the remaining Notebook, Reader, import, contextual Language Ink, personal curriculum, and delayed reading/writing assessment milestones.

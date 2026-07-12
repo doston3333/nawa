@@ -1,5 +1,7 @@
 # Nawa Foundation and Adaptive Study Room Implementation Plan
 
+> **Historical status (2026-07-12):** This plan records the original Study Room implementation. Its checkbox task list is an implementation log, not an active backlog; unchecked boxes are historical or superseded by the personal reading/writing milestones in `docs/superpowers/specs/2026-07-12-nawa-personal-reading-writing-system-design.md` and `docs/superpowers/plans/2026-07-12-nawa-profiles-offline-sync.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a runnable responsive Nawa vertical slice that plans a serious learner's study session, records immutable evidence, updates ability-specific mastery, and completes the Study Room flow on desktop and mobile.

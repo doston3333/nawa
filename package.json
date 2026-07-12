@@ -21,6 +21,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:prepare": "node scripts/db-prepare.mjs",
+    "backup:local": "node scripts/backup-local.mjs",
+    "restore:local": "node scripts/restore-local.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
