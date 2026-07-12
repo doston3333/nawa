@@ -34,6 +34,9 @@ eslint . (passed; no output)
 $ pnpm vitest run
 Test Files  24 passed (24)
 Tests       56 passed (56)
+
+$ pnpm build
+Next.js production build passed; routes compiled, including dynamic `/profiles`, `/learn`, and `/study`.
 ```
 
 ## Concerns / follow-up
