@@ -45,3 +45,36 @@ The focused tests cover replaying the same attempt, exactly-one evidence event a
 - Conflict payloads are recorded, but conflict resolution UI and browser outbox behavior belong to Tasks 4–5.
 - No service worker, IndexedDB, or client synchronization code was added in this task.
 
+## Reviewer fixes
+
+- Per-entity advisory transaction locks and a unique `(profileId, entityType, entityId, revision)` index make revision allocation and lesson/mastery read-modify-write operations concurrency-safe.
+- Cursor tokens are profile-bound; malformed, foreign, or non-numeric cursors raise `INVALID_CURSOR` and the pull route returns 400.
+- Study attempt payloads now validate task membership, current/next task bounds, and replay position. Lesson progress validates curriculum membership and status/completion fields.
+- Push requires a body-level `deviceId`, checks mutation/device consistency, and both the public service and route enforce that the registered device belongs to the selected profile. Route tests cover the 50-mutation bound, required device, profile/device mismatch, malformed payload, malformed cursor, and bounded pull delegation.
+
+Focused verification after reviewer fixes:
+
+```text
+pnpm prisma migrate deploy
+Applied migration 20260712130000_sync_revision_uniqueness
+
+pnpm vitest run src/server/sync.test.ts tests/integration/sync.test.ts src/app/api/study/sessions/\[sessionId\]/attempts/route.test.ts
+Test Files 3 passed (3)
+Tests 8 passed (8)
+
+pnpm lint
+PASS (exit 0)
+
+pnpm typecheck
+PASS (exit 0)
+
+git diff --check
+PASS (exit 0)
+
+pnpm test
+Test Files 34 passed (34)
+Tests 86 passed (86)
+
+pnpm build
+Compiled successfully; TypeScript passed; 14 static pages generated; sync routes present.
+```

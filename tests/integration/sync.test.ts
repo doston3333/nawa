@@ -12,6 +12,7 @@ describe("sync integration", () => {
 
   beforeAll(async () => {
     await db.profile.create({ data: { id: profileId, name: "Integration sync" } });
+    await db.device.create({ data: { id: deviceId, profileId, label: "Integration sync device" } });
     await db.studySession.create({
       data: {
         id: sessionId, profileId, durationMinutes: 30,
@@ -48,4 +49,3 @@ describe("sync integration", () => {
     expect((await pullChanges({ profileId, cursor: "MA" })).changes).toHaveLength(1);
   });
 });
-

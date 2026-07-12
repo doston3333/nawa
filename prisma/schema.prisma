@@ -154,4 +154,5 @@ model SyncChange {
 
   @@index([profileId, id])
   @@index([profileId, entityType, entityId, revision])
+  @@unique([profileId, entityType, entityId, revision])
 }

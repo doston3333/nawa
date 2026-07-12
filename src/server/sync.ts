@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { EvidenceEvent, SessionPlan } from "@/domain/learning/types";
+import { getLessonById } from "@/domain/curriculum/path";
 import { db } from "@/server/db";
 import {
   advanceSessionWithinTransaction,
@@ -49,19 +50,42 @@ type Ack = SyncPushResult["acknowledgements"][number];
 
 const EMPTY_CURSOR = "MA";
 
-function encodeCursor(id: bigint | number | string): string {
-  return Buffer.from(String(id), "utf8").toString("base64url");
+/** Errors raised by the sync contract are safe for callers to expose as 400s. */
+export class SyncInputError extends Error {
+  readonly code: string;
+
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "SyncInputError";
+    this.code = code;
+  }
 }
 
-function decodeCursor(cursor: string | null | undefined): bigint {
-  if (!cursor) return 0n;
+function encodeCursor(profileId: string, id: bigint | number | string): string {
+  return Buffer.from(`${profileId}:${String(id)}`, "utf8").toString("base64url");
+}
+
+function decodeCursor(cursor: string | null | undefined, profileId: string): bigint {
+  if (!cursor || cursor === EMPTY_CURSOR) return 0n;
   try {
     const value = Buffer.from(cursor, "base64url").toString("utf8");
-    if (!/^\d+$/.test(value)) return 0n;
-    return BigInt(value);
-  } catch {
-    return 0n;
+    const separator = value.lastIndexOf(":");
+    const tokenProfileId = value.slice(0, separator);
+    const tokenId = value.slice(separator + 1);
+    if (separator <= 0 || tokenProfileId !== profileId || !/^\d+$/.test(tokenId)) {
+      throw new SyncInputError("INVALID_CURSOR", "Cursor is invalid or belongs to another profile");
+    }
+    return BigInt(tokenId);
+  } catch (error) {
+    if (error instanceof SyncInputError) throw error;
+    throw new SyncInputError("INVALID_CURSOR", "Cursor is invalid or belongs to another profile");
   }
+}
+
+async function lockKey(tx: Prisma.TransactionClient, key: string): Promise<void> {
+  // Advisory transaction locks serialize read/modify/write operations without
+  // holding application locks or requiring a second coordination service.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -104,7 +128,7 @@ async function currentCursor(profileId?: string): Promise<string> {
     orderBy: { id: "desc" },
     select: { id: true },
   });
-  return row ? encodeCursor(row.id) : EMPTY_CURSOR;
+  return row ? encodeCursor(profileId ?? "*", row.id) : EMPTY_CURSOR;
 }
 
 function storedAck(row: { mutationId: string; status: string; result: unknown }): Ack {
@@ -118,7 +142,7 @@ function storedAck(row: { mutationId: string; status: string; result: unknown })
   return { mutationId: row.mutationId, status: "ACKNOWLEDGED", result: row.result };
 }
 
-async function applyMutation(mutation: SyncMutationInput, requestProfileId: string): Promise<Ack> {
+async function applyMutation(mutation: SyncMutationInput, requestProfileId: string, requestDeviceId: string): Promise<Ack> {
   if (mutation.profileId !== requestProfileId) {
     return {
       mutationId: mutation.mutationId,
@@ -126,9 +150,20 @@ async function applyMutation(mutation: SyncMutationInput, requestProfileId: stri
       result: { code: "PROFILE_MISMATCH", error: "Mutation does not belong to the selected profile" },
     };
   }
+  if (mutation.deviceId !== requestDeviceId) {
+    return {
+      mutationId: mutation.mutationId,
+      status: "REJECTED",
+      result: { code: "DEVICE_MISMATCH", error: "Mutation does not belong to the selected device" },
+    };
+  }
 
   try {
     return await db.$transaction(async (tx) => {
+      // Serialize all changes for a profile. PostgreSQL sequence values are
+      // allocated before commit, so without this lock a later committed row
+      // could make the returned cursor skip an earlier still-uncommitted row.
+      await lockKey(tx, `sync-profile:${mutation.profileId}`);
       const existing = await tx.syncMutation.findUnique({ where: { mutationId: mutation.mutationId } });
       if (existing) {
         if (existing.profileId !== mutation.profileId || existing.deviceId !== mutation.deviceId) {
@@ -151,6 +186,7 @@ async function applyMutation(mutation: SyncMutationInput, requestProfileId: stri
       }
 
       const entity = entityForMutation(mutation);
+      await lockKey(tx, `sync:${mutation.profileId}:${entity.entityType}:${entity.entityId}`);
       const latest = await tx.syncChange.findFirst({
         where: { profileId: mutation.profileId, entityType: entity.entityType, entityId: entity.entityId },
         orderBy: { revision: "desc" },
@@ -268,8 +304,18 @@ async function applyStudyAttempt(mutation: SyncMutationInput, tx: Prisma.Transac
   if (event.profileId !== mutation.profileId) throw new Error("Attempt does not belong to the active profile");
   const session = await tx.studySession.findUnique({ where: { id: sessionId } });
   if (!session || session.profileId !== mutation.profileId) throw new Error("Session does not belong to this profile");
-  const mastery = await recordEvidenceWithinTransaction({ sessionId, taskId, event }, tx);
   const plan = session.plan as unknown as SessionPlan;
+  const taskIndex = plan.tasks.findIndex((task) => task.id === taskId);
+  if (taskIndex < 0) throw new Error("taskId is not part of the stored session plan");
+  if (nextTaskIndex > plan.tasks.length) throw new Error("nextTaskIndex is outside the session plan");
+  const priorEvent = await tx.evidenceEvent.findUnique({ where: { id: event.id }, select: { profileId: true, sessionId: true, taskId: true } });
+  const isReplayPosition = Boolean(priorEvent) && nextTaskIndex === session.currentTaskIndex && taskIndex === nextTaskIndex - 1;
+  const isNextPosition = nextTaskIndex === session.currentTaskIndex + 1 && taskIndex === session.currentTaskIndex;
+  if (!isReplayPosition && !isNextPosition) {
+    throw new Error("nextTaskIndex must be the current task or advance exactly one task");
+  }
+  await lockKey(tx, `mastery:${mutation.profileId}:${event.atomId}:${event.ability}`);
+  const mastery = await recordEvidenceWithinTransaction({ sessionId, taskId, event }, tx);
   let lesson: unknown = null;
   if (!mastery.replayed) {
     if (plan.mode === "LESSON" && plan.lessonId) {
@@ -292,23 +338,49 @@ async function applyStudyAttempt(mutation: SyncMutationInput, tx: Prisma.Transac
 async function applyLessonProgress(mutation: SyncMutationInput, tx: Prisma.TransactionClient): Promise<unknown> {
   const payload = asRecord(mutation.payload);
   const lessonId = asString(payload.lessonId, "lessonId");
+  const lesson = getLessonById(lessonId);
+  if (!lesson) throw new Error("lessonId is not a known curriculum lesson");
   const correct = payload.correct === null ? null : payload.correct;
   if (correct !== null && typeof correct !== "boolean") throw new Error("correct must be boolean or null");
+  const status = payload.status;
+  if (status !== undefined && status !== "AVAILABLE" && status !== "IN_PROGRESS" && status !== "COMPLETE") {
+    throw new Error("status must be AVAILABLE, IN_PROGRESS, or COMPLETE");
+  }
+  if (status === "COMPLETE" && payload.completedAt !== undefined && payload.completedAt !== null &&
+      (typeof payload.completedAt !== "string" || Number.isNaN(Date.parse(payload.completedAt)))) {
+    throw new Error("completedAt must be a valid ISO date");
+  }
   await recordLessonAttemptScoreWithinTransaction({ profileId: mutation.profileId, lessonId, correct }, tx);
+  if (status) {
+    if (status === "COMPLETE") {
+      await completeLessonAfterSessionWithinTransaction({ profileId: mutation.profileId, lessonId }, tx);
+    } else {
+      await tx.lessonProgress.upsert({
+        where: { profileId_lessonId: { profileId: mutation.profileId, lessonId } },
+        update: { status, completedAt: null },
+        create: { profileId: mutation.profileId, lessonId, status },
+      });
+    }
+  }
   return await tx.lessonProgress.findUnique({
     where: { profileId_lessonId: { profileId: mutation.profileId, lessonId } },
   });
 }
 
-export async function pushMutations(input: { profileId: string; deviceId?: string; mutations: SyncMutationInput[] }): Promise<SyncPushResult> {
+export async function pushMutations(input: { profileId: string; deviceId: string; mutations: SyncMutationInput[] }): Promise<SyncPushResult> {
   if (input.mutations.length > 50) throw new Error("A sync push may contain at most 50 mutations");
+  if (!input.deviceId) throw new SyncInputError("DEVICE_REQUIRED", "deviceId is required");
+  const device = await db.device.findUnique({ where: { id: input.deviceId }, select: { profileId: true } });
+  if (!device || device.profileId !== input.profileId) {
+    throw new SyncInputError("DEVICE_MISMATCH", "Device does not belong to the selected profile");
+  }
   const acknowledgements: Ack[] = [];
-  for (const mutation of input.mutations) acknowledgements.push(await applyMutation(mutation, input.profileId));
+  for (const mutation of input.mutations) acknowledgements.push(await applyMutation(mutation, input.profileId, input.deviceId));
   return { acknowledgements, cursor: await currentCursor(input.profileId) };
 }
 
 export async function pullChanges(input: { profileId: string; cursor?: string }): Promise<SyncPullResult> {
-  const requested = decodeCursor(input.cursor);
+  const requested = decodeCursor(input.cursor, input.profileId);
   const rows = await db.syncChange.findMany({
     where: { profileId: input.profileId, id: { gt: requested } },
     orderBy: { id: "asc" },
@@ -316,7 +388,7 @@ export async function pullChanges(input: { profileId: string; cursor?: string })
   });
   const hasMore = rows.length > 200;
   const visible = hasMore ? rows.slice(0, 200) : rows;
-  const cursor = visible.length ? encodeCursor(visible[visible.length - 1]!.id) : input.cursor || EMPTY_CURSOR;
+  const cursor = visible.length ? encodeCursor(input.profileId, visible[visible.length - 1]!.id) : input.cursor || EMPTY_CURSOR;
   return {
     changes: visible.map((row) => ({
       id: row.id.toString(),

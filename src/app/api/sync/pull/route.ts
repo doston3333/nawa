@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ProfileSelectionRequiredError, resolveProfileId } from "@/server/profile";
-import { pullChanges } from "@/server/sync";
+import { pullChanges, SyncInputError } from "@/server/sync";
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +11,9 @@ export async function GET(request: Request) {
     if (error instanceof ProfileSelectionRequiredError) {
       return NextResponse.json({ error: "Select a profile before synchronizing", code: error.code }, { status: 400 });
     }
+    if (error instanceof SyncInputError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 400 });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to pull sync changes" }, { status: 503 });
   }
 }
-

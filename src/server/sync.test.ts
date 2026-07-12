@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/server/db";
-import { pullChanges, pushMutations, type SyncMutationInput } from "@/server/sync";
+import { pullChanges, pushMutations, SyncInputError, type SyncMutationInput } from "@/server/sync";
 
 const profileId = randomUUID();
 const deviceId = randomUUID();
@@ -24,6 +24,7 @@ function studyAttemptMutation(): SyncMutationInput {
 
 beforeAll(async () => {
   await db.profile.create({ data: { id: profileId, name: "Sync test" } });
+  await db.device.create({ data: { id: deviceId, profileId, label: "Sync test device" } });
   sessionId = randomUUID();
   await db.studySession.create({
     data: {
@@ -75,5 +76,31 @@ describe("idempotent synchronization", () => {
     expect(pulled.cursor).toBe(pushed.cursor);
     expect((pulled.changes[0]?.payload as { mastery: unknown }).mastery).toBeTruthy();
   });
-});
 
+  it("rejects malformed and foreign cursors", async () => {
+    await expect(pullChanges({ profileId, cursor: "not-a-cursor" })).rejects.toBeInstanceOf(SyncInputError);
+    const foreign = Buffer.from(`${randomUUID()}:999`, "utf8").toString("base64url");
+    await expect(pullChanges({ profileId, cursor: foreign })).rejects.toMatchObject({ code: "INVALID_CURSOR" });
+  });
+
+  it("rejects an attempt task that is not in the stored plan", async () => {
+    const mutation = studyAttemptMutation();
+    mutation.payload = { ...(mutation.payload as object), taskId: "unknown-task" };
+    const result = await pushMutations({ profileId, deviceId, mutations: [mutation] });
+    expect(result.acknowledgements[0]).toMatchObject({ status: "REJECTED" });
+    expect(await db.evidenceEvent.count({ where: { profileId } })).toBe(0);
+  });
+
+  it("serializes concurrent attempts for one session", async () => {
+    const first = studyAttemptMutation();
+    const second = studyAttemptMutation();
+    const results = await Promise.all([
+      pushMutations({ profileId, deviceId, mutations: [first] }),
+      pushMutations({ profileId, deviceId, mutations: [second] }),
+    ]);
+    expect(results.filter((result) => result.acknowledgements[0]?.status === "ACKNOWLEDGED")).toHaveLength(1);
+    expect(results.filter((result) => result.acknowledgements[0]?.status === "REJECTED")).toHaveLength(1);
+    expect(await db.evidenceEvent.count({ where: { profileId } })).toBe(1);
+    expect(await db.studySession.findUnique({ where: { id: sessionId } }).then((row) => row?.currentTaskIndex)).toBe(1);
+  });
+});
