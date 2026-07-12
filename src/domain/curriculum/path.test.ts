@@ -1,5 +1,5 @@
 import { BEGINNER_ATOMS } from "./seed";
-import { LESSONS, UNITS, checkpointCount, orderedLessons } from "./path";
+import { ACTIVE_COURSE, LESSONS, UNITS, checkpointCount, orderedLessons } from "./path";
 import { tipsForLesson } from "./tips";
 
 it("references only atoms that exist in the curriculum", () => {
@@ -43,4 +43,11 @@ it("checkpoint atomIds are a subset of that unit’s non-checkpoint lesson atoms
       ).toBe(true);
     }
   }
+});
+
+it("derives the compatibility learning path from the active versioned course", () => {
+  expect(ACTIVE_COURSE.id).toBe("pre-a1-v1");
+  expect(ACTIVE_COURSE.units).toHaveLength(8);
+  expect(LESSONS[0]?.id).toBe("script-1");
+  expect(UNITS).toHaveLength(8);
 });

@@ -1,4 +1,5 @@
 import type { LessonDef, UnitDef } from "@/domain/learning/types";
+export { ACTIVE_COURSE } from "@/domain/course/catalog";
 import { tipsForLesson } from "./tips";
 
 const L = (ids: string[]) => ids;
