@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, expect, it } from "vitest";
 import { closeOfflineDb, DB_NAME } from "./indexed-db";
-import { applyServerChange, listCachedChanges } from "./profile-cache";
+import { applyServerChange, listCachedChanges, selectLatestActiveSession } from "./profile-cache";
 
 const profileId = "00000000-0000-4000-8000-000000000010";
 
@@ -33,3 +33,11 @@ it("sorts large server change IDs without lossy Number conversion", async () => 
   ]);
 });
 
+it("selects the newest active cached session and rejects completed sessions", () => {
+  const rows = [
+    { id: "older", status: "ACTIVE", currentTaskIndex: 0, updatedAt: "2026-07-11T10:00:00.000Z", plan: { tasks: [{}] } },
+    { id: "completed-newer", status: "COMPLETE", currentTaskIndex: 1, updatedAt: "2026-07-12T10:00:00.000Z", plan: { tasks: [{}] } },
+    { id: "newest-active", status: "ACTIVE", currentTaskIndex: 0, updatedAt: "2026-07-12T09:00:00.000Z", plan: { tasks: [{}] } },
+  ];
+  expect(selectLatestActiveSession(rows)?.id).toBe("newest-active");
+});

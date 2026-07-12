@@ -6,7 +6,7 @@ import type { TaskSubmission } from "./task-card";
 import { buildAttemptMutation, httpError, isNetworkFailure, notifyOfflineChange, readActiveProfileId } from "@/features/offline/attempt-mutation";
 import { enqueueMutation } from "@/lib/offline/outbox";
 import { getDeviceId } from "@/lib/offline/sync-client";
-import { cacheSession, listCachedSessions } from "@/lib/offline/profile-cache";
+import { cacheSession, listCachedSessions, selectLatestActiveSession } from "@/lib/offline/profile-cache";
 
 const abilityForStage: Partial<Record<SessionTask["stage"], Ability>> = {
   RETRIEVAL: "WRITING", NEW_CONCEPT: "WRITING", INPUT: "READING", OUTPUT: "WRITING",
@@ -37,6 +37,7 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
   const [requestKey, setRequestKey] = useState(0);
   const [counts, setCounts] = useState<Record<Ability, number>>({ READING: 0, LISTENING: 0, WRITING: 0, SPEAKING: 0 });
   const [submitting, setSubmitting] = useState(false);
+  const [internetRequired, setInternetRequired] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -57,12 +58,13 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
         await cacheSession(nextView.plan.profileId, { id: nextView.plan.id, ...nextView }).catch(() => undefined);
         setView(nextView);
         setError(null);
+        setInternetRequired(false);
       } catch (reason: unknown) {
         if (!active || controller.signal.aborted) return;
         const profileId = readActiveProfileId();
         if (isNetworkFailure(reason) && profileId) {
           void listCachedSessions(profileId).then((rows) => {
-            const cached = rows.find((row) => {
+            const cached = selectLatestActiveSession(rows, (row) => {
               const plan = row.plan as StudySessionView["plan"] | undefined;
               return plan?.durationMinutes === durationMinutes && plan.mode !== "LESSON";
             });
@@ -70,19 +72,23 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
             if (cached) {
               setView(cached as unknown as StudySessionView);
               setError(null);
+              setInternetRequired(false);
             } else {
               setError("Internet required to start a study session");
+              setInternetRequired(true);
             }
             setLoading(false);
           }).catch(() => {
             if (active && !controller.signal.aborted) {
               setError("Internet required to start a study session");
+              setInternetRequired(true);
               setLoading(false);
             }
           });
           return;
         }
-        setError(reason instanceof Error ? reason.message : "Unable to load your study session");
+        setError(isNetworkFailure(reason) ? "Internet required to start a study session" : reason instanceof Error ? reason.message : "Unable to load your study session");
+        setInternetRequired(isNetworkFailure(reason));
       } finally {
         if (active) setLoading(false);
       }
@@ -126,6 +132,7 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
         status: body.status ?? (nextTaskIndex >= view.plan.tasks.length ? "COMPLETE" : "ACTIVE"),
       };
       setView(nextView);
+      setInternetRequired(false);
       void cacheSession(view.plan.profileId, { id: view.plan.id, ...nextView }).catch(() => undefined);
     } catch (reason) {
       if (isNetworkFailure(reason)) {
@@ -148,6 +155,7 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
           await cacheSession(view.plan.profileId, { id: view.plan.id, ...nextView });
           notifyOfflineChange();
           setError(null);
+          setInternetRequired(false);
         } catch (offlineError) {
           setError(offlineError instanceof Error ? offlineError.message : "Unable to save this attempt locally");
         }
@@ -162,9 +170,10 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
   const retry = useCallback(() => {
     setLoading(true);
     setError(null);
+    setInternetRequired(false);
     setView(null);
     setRequestKey((value) => value + 1);
   }, []);
 
-  return { view, currentTask, loading, error, submitAttempt, submitting, counts, retry };
+  return { view, currentTask, loading, error, submitAttempt, submitting, counts, retry, internetRequired };
 }

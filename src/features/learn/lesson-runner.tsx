@@ -26,6 +26,7 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
   if (session.error && !session.view) {
     return (
       <main className="lesson-shell">
+        <SyncStatus internetRequired={session.internetRequired} />
         <p role="alert">{session.error}</p>
         <div className="complete-actions">
           <button type="button" className="primary-action" onClick={session.retry}>

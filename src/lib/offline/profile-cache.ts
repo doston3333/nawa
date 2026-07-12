@@ -21,7 +21,40 @@ export function cacheProfile(profileId: string, profile: CachedProfile): Promise
 }
 
 export function cacheSession(profileId: string, session: Record<string, unknown>): Promise<void> {
-  return putRecord("sessions", session, profileId);
+  return putRecord("sessions", { ...session, updatedAt: new Date().toISOString() }, profileId);
+}
+
+/**
+ * Pick the newest resumable session from a profile's cache. Sorting is explicit
+ * so IndexedDB's insertion order never decides which device state wins.
+ */
+export function selectLatestActiveSession(
+  rows: Record<string, unknown>[],
+  predicate?: (row: Record<string, unknown>) => boolean,
+): Record<string, unknown> | undefined {
+  const candidates = rows.filter((row) => {
+    if (predicate && !predicate(row)) return false;
+    const view = row as { status?: unknown; currentTaskIndex?: unknown; plan?: unknown };
+    const plan = view.plan as { tasks?: unknown[] } | undefined;
+    if (view.status === "COMPLETE") return false;
+    return !(Array.isArray(plan?.tasks) && typeof view.currentTaskIndex === "number" && view.currentTaskIndex >= plan.tasks.length);
+  });
+  candidates.sort((left, right) => {
+    const timestamp = (row: Record<string, unknown>): number => {
+      const plan = row.plan as Record<string, unknown> | undefined;
+      for (const value of [row.updatedAt, row.createdAt, plan?.updatedAt, plan?.createdAt]) {
+        if (typeof value === "string") {
+          const parsed = Date.parse(value);
+          if (!Number.isNaN(parsed)) return parsed;
+        }
+      }
+      return 0;
+    };
+    const byTime = timestamp(right) - timestamp(left);
+    if (byTime !== 0) return byTime;
+    return String(right.id ?? "").localeCompare(String(left.id ?? ""));
+  });
+  return candidates[0];
 }
 
 export async function readCachedSession(profileId: string, sessionId: string): Promise<Record<string, unknown> | undefined> {

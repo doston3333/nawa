@@ -6,7 +6,7 @@ import type { TaskSubmission } from "@/features/study-room/task-card";
 import { buildAttemptMutation, httpError, isNetworkFailure, notifyOfflineChange, readActiveProfileId } from "@/features/offline/attempt-mutation";
 import { enqueueMutation } from "@/lib/offline/outbox";
 import { getDeviceId } from "@/lib/offline/sync-client";
-import { cacheSession, listCachedSessions } from "@/lib/offline/profile-cache";
+import { cacheSession, listCachedSessions, selectLatestActiveSession } from "@/lib/offline/profile-cache";
 
 
 function normalizeArabic(value: string): string {
@@ -52,6 +52,7 @@ export function useLessonSession(lessonId: string) {
   });
   const [nextLessonId, setNextLessonId] = useState<string | null>(null);
   const [requestKey, setRequestKey] = useState(0);
+  const [internetRequired, setInternetRequired] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,6 +68,7 @@ export function useLessonSession(lessonId: string) {
           await cacheSession(nextView.plan.profileId, { id: nextView.plan.id, ...nextView }).catch(() => undefined);
           setView(nextView);
           setError(null);
+          setInternetRequired(false);
           setLoading(false);
         }
       })
@@ -75,26 +77,30 @@ export function useLessonSession(lessonId: string) {
           const profileId = readActiveProfileId();
           if (isNetworkFailure(reason) && profileId) {
             void listCachedSessions(profileId).then((rows) => {
-              const cached = rows.find((row) => {
+              const cached = selectLatestActiveSession(rows, (row) => {
                 const plan = row.plan as StudySessionView["plan"] | undefined;
                 return plan?.mode === "LESSON" && plan.lessonId === lessonId;
               });
               if (cached && !controller.signal.aborted) {
                 setView(cached as unknown as StudySessionView);
                 setError(null);
+                setInternetRequired(false);
               } else if (!controller.signal.aborted) {
                 setError("Internet required to start this lesson");
+                setInternetRequired(true);
               }
               if (!controller.signal.aborted) setLoading(false);
             }).catch(() => {
               if (!controller.signal.aborted) {
                 setError("Internet required to start this lesson");
+                setInternetRequired(true);
                 setLoading(false);
               }
             });
             return;
           }
           setError(reason instanceof Error ? reason.message : "Unable to start lesson");
+          setInternetRequired(false);
           setLoading(false);
         }
       });
@@ -128,6 +134,7 @@ export function useLessonSession(lessonId: string) {
         if (!response.ok) throw httpError(body.error ?? "Unable to save this attempt", response.status);
         if (body.counts) setCounts(body.counts);
         if (body.lesson?.nextLessonId) setNextLessonId(body.lesson.nextLessonId);
+        setInternetRequired(false);
         const nextView: StudySessionView = {
           ...view,
           plan: (body.plan as StudySessionView["plan"] | undefined) ?? view.plan,
@@ -157,6 +164,7 @@ export function useLessonSession(lessonId: string) {
             await cacheSession(view.plan.profileId, { id: view.plan.id, ...nextView });
             notifyOfflineChange();
             setError(null);
+            setInternetRequired(false);
           } catch (offlineError) {
             setError(offlineError instanceof Error ? offlineError.message : "Unable to save this attempt locally");
           }
@@ -173,6 +181,7 @@ export function useLessonSession(lessonId: string) {
   const retry = useCallback(() => {
     setLoading(true);
     setError(null);
+    setInternetRequired(false);
     setView(null);
     setRequestKey((value) => value + 1);
   }, []);
@@ -187,5 +196,6 @@ export function useLessonSession(lessonId: string) {
     nextLessonId,
     submitAttempt,
     retry,
+    internetRequired,
   };
 }

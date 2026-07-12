@@ -51,6 +51,7 @@ export function StudyRoom({ durationMinutes }: { durationMinutes: 30 | 45 | 60 }
   if (session.error && !session.view) {
     return (
       <main className="study-room-status">
+        <SyncStatus internetRequired={session.internetRequired} />
         <p role="alert">{session.error}</p>
         <p className="study-room-status-lede">
           If this is a new browser, a fresh anonymous notebook will be created. Cookie loss always

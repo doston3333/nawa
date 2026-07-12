@@ -4,6 +4,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { StudySessionView } from "@/domain/learning/types";
 import { closeOfflineDb, DB_NAME } from "@/lib/offline/indexed-db";
 import { listPendingMutations } from "@/lib/offline/outbox";
+import { cacheSession } from "@/lib/offline/profile-cache";
+import { ACTIVE_PROFILE_STORAGE_KEY } from "@/features/offline/attempt-mutation";
 import { useLessonSession } from "./use-lesson-session";
 
 const profileId = "00000000-0000-4000-8000-000000000010";
@@ -35,12 +37,42 @@ beforeEach(async () => {
   vi.restoreAllMocks();
   Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
   await closeOfflineDb();
+  const values = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", { configurable: true, value: {
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  } });
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(DB_NAME);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
     request.onblocked = () => resolve();
   });
+});
+
+it("restores the latest active cached lesson after a network start failure", async () => {
+  window.localStorage.setItem(ACTIVE_PROFILE_STORAGE_KEY, profileId);
+  await cacheSession(profileId, {
+    id: sessionView.plan.id,
+    ...sessionView,
+    currentTaskIndex: 1,
+    plan: {
+      ...sessionView.plan,
+      tasks: [
+        ...sessionView.plan.tasks,
+        { ...sessionView.plan.tasks[0], id: "task-2", prompt: "Write ba again" },
+      ],
+    },
+  });
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
+
+  const session = renderHook(() => useLessonSession("letters-1"));
+  await waitFor(() => expect(session.result.current.loading).toBe(false));
+
+  expect(session.result.current.view?.currentTaskIndex).toBe(1);
+  expect(session.result.current.currentTask?.id).toBe("task-2");
+  expect(session.result.current.error).toBeNull();
 });
 
 it("advances locally and queues an attempt when the network is unavailable", async () => {
