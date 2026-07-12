@@ -6,7 +6,7 @@ import type { MasterySnapshot } from "@/domain/learning/types";
 describe.each([30, 45, 60] as const)("%i-minute plan", (durationMinutes) => {
   it("preserves all six stages and the exact duration", () => {
     const plan = buildSessionPlan({
-      learnerId: "learner-1",
+      profileId: "profile-1",
       durationMinutes,
       now: "2026-07-11T10:00:00.000Z",
       atoms: BEGINNER_ATOMS,
@@ -21,7 +21,7 @@ describe.each([30, 45, 60] as const)("%i-minute plan", (durationMinutes) => {
 
 it("varies cold-start content with a real retrieval target", () => {
   const plan = buildSessionPlan({
-    learnerId: "learner-1",
+    profileId: "profile-1",
     durationMinutes: 30,
     now: "2026-07-11T10:00:00.000Z",
     atoms: BEGINNER_ATOMS,
@@ -39,7 +39,7 @@ it("advances past pure letter-first once many letters are solid", () => {
   const letterMastery: MasterySnapshot[] = BEGINNER_ATOMS.filter((a) => a.kind === "LETTER")
     .slice(0, 12)
     .map((atom) => ({
-      learnerId: "learner-1",
+      profileId: "profile-1",
       atomId: atom.id,
       ability: "READING" as const,
       state: "RETRIEVED" as const,
@@ -50,7 +50,7 @@ it("advances past pure letter-first once many letters are solid", () => {
     }));
 
   const plan = buildSessionPlan({
-    learnerId: "learner-1",
+    profileId: "profile-1",
     durationMinutes: 30,
     now: "2026-07-11T10:00:00.000Z",
     atoms: BEGINNER_ATOMS,
@@ -64,7 +64,7 @@ it("advances past pure letter-first once many letters are solid", () => {
 it("draws input from a large passage bank", () => {
   expect(INPUT_PASSAGES.length).toBeGreaterThanOrEqual(25);
   const plan = buildSessionPlan({
-    learnerId: "learner-1",
+    profileId: "profile-1",
     durationMinutes: 45,
     now: "2026-07-11T10:00:00.000Z",
     atoms: BEGINNER_ATOMS,

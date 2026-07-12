@@ -12,12 +12,12 @@ function normalizeArabic(value: string): string {
   return value.normalize("NFKC").replace(/[\u064B-\u065F\u0670]/g, "").replace(/\s+/g, " ").trim();
 }
 
-function buildEvidence(task: SessionTask, submission: TaskSubmission, learnerId: string): EvidenceEvent | null {
+function buildEvidence(task: SessionTask, submission: TaskSubmission, profileId: string): EvidenceEvent | null {
   const atomId = task.atomIds[0];
   const ability = abilityForStage[task.stage];
   if (!atomId || !ability || task.expectedAnswer === null) return null;
   return {
-    id: crypto.randomUUID(), learnerId, atomId, ability,
+    id: crypto.randomUUID(), profileId, atomId, ability,
     occurredAt: new Date().toISOString(),
     correct: normalizeArabic(submission.answer) === normalizeArabic(task.expectedAnswer),
     responseMode: "TYPE", helpLevel: submission.helpLevel,
@@ -83,7 +83,7 @@ export function useStudySession(durationMinutes: 30 | 45 | 60) {
         body: JSON.stringify({
           taskId: currentTask.id,
           nextTaskIndex,
-          event: buildEvidence(currentTask, submission, view.plan.learnerId),
+          event: buildEvidence(currentTask, submission, view.plan.profileId),
         }),
       });
       const body = await response.json();

@@ -11,7 +11,7 @@ function normalizeArabic(value: string): string {
 function buildEvidence(
   task: SessionTask,
   submission: TaskSubmission,
-  learnerId: string,
+  profileId: string,
 ): EvidenceEvent | null {
   const atomId = task.atomIds[0];
   if (!atomId || task.expectedAnswer === null) return null;
@@ -20,7 +20,7 @@ function buildEvidence(
     submission.answer.trim().toLowerCase() === task.expectedAnswer.trim().toLowerCase();
   return {
     id: crypto.randomUUID(),
-    learnerId,
+    profileId,
     atomId,
     ability: task.kind === "SELECT" && task.promptArabic ? "READING" : "WRITING",
     occurredAt: new Date().toISOString(),
@@ -91,7 +91,7 @@ export function useLessonSession(lessonId: string) {
           body: JSON.stringify({
             taskId: currentTask.id,
             nextTaskIndex,
-            event: buildEvidence(currentTask, submission, view.plan.learnerId),
+            event: buildEvidence(currentTask, submission, view.plan.profileId),
           }),
         });
         const body = await response.json();

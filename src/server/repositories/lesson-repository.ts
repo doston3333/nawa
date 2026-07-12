@@ -11,10 +11,10 @@ import { getLessonById, nextLessonId } from "@/domain/curriculum/path";
 import { buildLessonPlan } from "@/domain/lessons/build-lesson-plan";
 import { buildLearnPathView, isLessonComplete } from "@/domain/lessons/unlock";
 import { db } from "@/server/db";
-import { ensureLearner } from "@/server/repositories/study-repository";
+import { ensureProfile } from "@/server/repositories/study-repository";
 
-export async function listLessonProgress(learnerId: string): Promise<LessonProgressRecord[]> {
-  const rows = await db.lessonProgress.findMany({ where: { learnerId } });
+export async function listLessonProgress(profileId: string): Promise<LessonProgressRecord[]> {
+  const rows = await db.lessonProgress.findMany({ where: { profileId } });
   return rows.map((row) => ({
     lessonId: row.lessonId,
     status: row.status,
@@ -24,29 +24,29 @@ export async function listLessonProgress(learnerId: string): Promise<LessonProgr
   }));
 }
 
-export async function getLearnPath(learnerId: string): Promise<LearnPathView> {
-  await ensureLearner(learnerId);
-  const progress = await listLessonProgress(learnerId);
+export async function getLearnPath(profileId: string): Promise<LearnPathView> {
+  await ensureProfile(profileId);
+  const progress = await listLessonProgress(profileId);
   return buildLearnPathView(progress);
 }
 
 export async function startLessonSession(input: {
-  learnerId: string;
+  profileId: string;
   lessonId: string;
   now: string;
 }): Promise<StudySessionView> {
-  await ensureLearner(input.learnerId);
+  await ensureProfile(input.profileId);
   const lesson = getLessonById(input.lessonId);
   if (!lesson) throw new Error("Lesson not found");
 
-  const path = await getLearnPath(input.learnerId);
+  const path = await getLearnPath(input.profileId);
   const node = path.units.flatMap((unit) => unit.lessons).find((item) => item.id === input.lessonId);
   if (!node || node.status === "LOCKED") {
     throw new Error("Lesson is locked");
   }
 
   const active = await db.studySession.findFirst({
-    where: { learnerId: input.learnerId, status: "ACTIVE" },
+    where: { profileId: input.profileId, status: "ACTIVE" },
     orderBy: { updatedAt: "desc" },
   });
   if (active) {
@@ -68,7 +68,7 @@ export async function startLessonSession(input: {
   const sessionId = randomUUID();
   const plan = buildLessonPlan({
     sessionId,
-    learnerId: input.learnerId,
+    profileId: input.profileId,
     lesson,
     atoms: BEGINNER_ATOMS,
     now: input.now,
@@ -77,7 +77,7 @@ export async function startLessonSession(input: {
   await db.studySession.create({
     data: {
       id: sessionId,
-      learnerId: input.learnerId,
+      profileId: input.profileId,
       durationMinutes: 30,
       plan: plan as unknown as Prisma.InputJsonValue,
       startedAt: new Date(input.now),
@@ -86,11 +86,11 @@ export async function startLessonSession(input: {
 
   await db.lessonProgress.upsert({
     where: {
-      learnerId_lessonId: { learnerId: input.learnerId, lessonId: input.lessonId },
+      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
     update: { status: "IN_PROGRESS" },
     create: {
-      learnerId: input.learnerId,
+      profileId: input.profileId,
       lessonId: input.lessonId,
       status: "IN_PROGRESS",
     },
@@ -100,21 +100,21 @@ export async function startLessonSession(input: {
 }
 
 export async function recordLessonAttemptScore(input: {
-  learnerId: string;
+  profileId: string;
   lessonId: string;
   correct: boolean | null;
 }): Promise<void> {
   if (input.correct === null) return;
   const existing = await db.lessonProgress.findUnique({
     where: {
-      learnerId_lessonId: { learnerId: input.learnerId, lessonId: input.lessonId },
+      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
   });
   const scoreCorrect = (existing?.scoreCorrect ?? 0) + (input.correct ? 1 : 0);
   const scoreTotal = (existing?.scoreTotal ?? 0) + 1;
   await db.lessonProgress.upsert({
     where: {
-      learnerId_lessonId: { learnerId: input.learnerId, lessonId: input.lessonId },
+      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
     update: {
       status: "IN_PROGRESS",
@@ -122,7 +122,7 @@ export async function recordLessonAttemptScore(input: {
       scoreTotal,
     },
     create: {
-      learnerId: input.learnerId,
+      profileId: input.profileId,
       lessonId: input.lessonId,
       status: "IN_PROGRESS",
       scoreCorrect,
@@ -132,12 +132,12 @@ export async function recordLessonAttemptScore(input: {
 }
 
 export async function maybeCompleteLesson(input: {
-  learnerId: string;
+  profileId: string;
   lessonId: string;
 }): Promise<{ completed: boolean; nextLessonId: string | null }> {
   const row = await db.lessonProgress.findUnique({
     where: {
-      learnerId_lessonId: { learnerId: input.learnerId, lessonId: input.lessonId },
+      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
   });
   if (!row) return { completed: false, nextLessonId: null };
@@ -154,7 +154,7 @@ export async function maybeCompleteLesson(input: {
 
   await db.lessonProgress.update({
     where: {
-      learnerId_lessonId: { learnerId: input.learnerId, lessonId: input.lessonId },
+      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
     data: {
       status: "COMPLETE",
@@ -166,26 +166,26 @@ export async function maybeCompleteLesson(input: {
 
 /** Force-complete when learner finished all exercises even if score is low — still unlocks path for demo UX. */
 export async function completeLessonAfterSession(input: {
-  learnerId: string;
+  profileId: string;
   lessonId: string;
 }): Promise<{ completed: boolean; nextLessonId: string | null; passed: boolean }> {
   const row = await db.lessonProgress.findUnique({
     where: {
-      learnerId_lessonId: { learnerId: input.learnerId, lessonId: input.lessonId },
+      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
   });
   const passed = row ? isLessonComplete(row.scoreCorrect, Math.max(row.scoreTotal, 1)) : false;
 
   await db.lessonProgress.upsert({
     where: {
-      learnerId_lessonId: { learnerId: input.learnerId, lessonId: input.lessonId },
+      profileId_lessonId: { profileId: input.profileId, lessonId: input.lessonId },
     },
     update: {
       status: "COMPLETE",
       completedAt: new Date(),
     },
     create: {
-      learnerId: input.learnerId,
+      profileId: input.profileId,
       lessonId: input.lessonId,
       status: "COMPLETE",
       scoreCorrect: row?.scoreCorrect ?? 0,

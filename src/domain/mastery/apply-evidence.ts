@@ -3,12 +3,12 @@ import type { Ability, EvidenceEvent, MasterySnapshot, MasteryState } from "@/do
 const DAY_MS = 86_400_000;
 
 export function createInitialSnapshot(
-  learnerId: string,
+  profileId: string,
   atomId: string,
   ability: Ability,
   now: string,
 ): MasterySnapshot {
-  return { learnerId, atomId, ability, state: "ENCOUNTERED", successfulRetrievals: 0, lastAttemptAt: null, lastSuccessfulRetrievalAt: null, nextReviewAt: now };
+  return { profileId, atomId, ability, state: "ENCOUNTERED", successfulRetrievals: 0, lastAttemptAt: null, lastSuccessfulRetrievalAt: null, nextReviewAt: now };
 }
 
 function nextReview(occurredAt: string, successfulRetrievals: number): string {
@@ -18,7 +18,7 @@ function nextReview(occurredAt: string, successfulRetrievals: number): string {
 }
 
 export function applyEvidence(snapshot: MasterySnapshot, event: EvidenceEvent): MasterySnapshot {
-  if (snapshot.learnerId !== event.learnerId || snapshot.atomId !== event.atomId || snapshot.ability !== event.ability) {
+  if (snapshot.profileId !== event.profileId || snapshot.atomId !== event.atomId || snapshot.ability !== event.ability) {
     throw new Error("Evidence does not match mastery snapshot");
   }
   if (event.analysisConfidence !== null && event.analysisConfidence < 0.7) return snapshot;

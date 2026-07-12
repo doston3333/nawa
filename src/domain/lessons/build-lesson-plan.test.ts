@@ -19,7 +19,7 @@ it("builds a short scored lesson with mix of select and type tasks", () => {
   expect(lesson).toBeTruthy();
   const plan = buildLessonPlan({
     sessionId: "00000000-0000-4000-8000-000000000300",
-    learnerId: "00000000-0000-4000-8000-000000000001",
+    profileId: "00000000-0000-4000-8000-000000000001",
     lesson: lesson!,
     atoms: BEGINNER_ATOMS,
     now: "2026-07-12T00:00:00.000Z",
@@ -42,7 +42,7 @@ it("builds a checkpoint mini-test from unit atoms with heavy production", () => 
 
   const plan = buildLessonPlan({
     sessionId: "00000000-0000-4000-8000-000000000301",
-    learnerId: "00000000-0000-4000-8000-000000000001",
+    profileId: "00000000-0000-4000-8000-000000000001",
     lesson: lesson!,
     atoms: BEGINNER_ATOMS,
     now: "2026-07-12T00:00:00.000Z",
@@ -75,7 +75,7 @@ it("every checkpoint atom set is drawn only from that unit’s lesson atoms", ()
 
     const plan = buildLessonPlan({
       sessionId: `00000000-0000-4000-8000-0000000003${checkpoint.order.toString().padStart(2, "0")}`,
-      learnerId: "00000000-0000-4000-8000-000000000001",
+      profileId: "00000000-0000-4000-8000-000000000001",
       lesson: checkpoint,
       atoms: BEGINNER_ATOMS,
       now: "2026-07-12T00:00:00.000Z",

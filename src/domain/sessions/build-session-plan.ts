@@ -15,7 +15,7 @@ const durations: Record<30 | 45 | 60, Record<SessionStage, number>> = {
 };
 
 export interface BuildSessionPlanInput {
-  learnerId: string;
+  profileId: string;
   durationMinutes: 30 | 45 | 60;
   now: string;
   atoms: KnowledgeAtom[];
@@ -233,8 +233,8 @@ export function buildSessionPlan(input: BuildSessionPlanInput): SessionPlan {
   ];
 
   return {
-    id: `session-${input.learnerId}-${input.now}`,
-    learnerId: input.learnerId,
+    id: `session-${input.profileId}-${input.now}`,
+    profileId: input.profileId,
     durationMinutes: input.durationMinutes,
     createdAt: input.now,
     tasks,

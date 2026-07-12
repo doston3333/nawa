@@ -2,7 +2,7 @@ import { rankRetrievalCandidates } from "./retrieval";
 import type { MasterySnapshot } from "@/domain/learning/types";
 
 const snapshot = (ability: MasterySnapshot["ability"], state: MasterySnapshot["state"], nextReviewAt: string): MasterySnapshot => ({
-  learnerId: "learner-1", atomId: `kitab-${ability}`, ability, state,
+  profileId: "profile-1", atomId: `kitab-${ability}`, ability, state,
   successfulRetrievals: state === "RETAINED" ? 3 : 1,
   lastAttemptAt: "2026-07-01T00:00:00.000Z",
   lastSuccessfulRetrievalAt: "2026-07-01T00:00:00.000Z",

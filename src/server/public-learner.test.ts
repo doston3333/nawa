@@ -3,11 +3,11 @@ import { afterEach, expect, it, vi } from "vitest";
 const cookieStore = {
   value: undefined as string | undefined,
   get(name: string) {
-    if (name !== "nawa_learner_id") return undefined;
+    if (name !== "nawa_profile_id") return undefined;
     return this.value ? { name, value: this.value } : undefined;
   },
   set(name: string, value: string) {
-    if (name === "nawa_learner_id") this.value = value;
+    if (name === "nawa_profile_id") this.value = value;
   },
 };
 
@@ -16,7 +16,7 @@ vi.mock("next/headers", () => ({
 }));
 
 vi.mock("@/server/repositories/study-repository", () => ({
-  ensureLearner: vi.fn(async () => undefined),
+  ensureProfile: vi.fn(async () => undefined),
 }));
 
 afterEach(() => {

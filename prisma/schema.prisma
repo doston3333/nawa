@@ -33,13 +33,17 @@ enum LessonProgressStatus {
   COMPLETE
 }
 
-model Learner {
+model Profile {
   id        String            @id @db.Uuid
+  name      String
   createdAt DateTime          @default(now())
   mastery   MasterySnapshot[]
   evidence  EvidenceEvent[]
   sessions  StudySession[]
   lessons   LessonProgress[]
+  devices   Device[]
+  mutations SyncMutation[]
+  changes   SyncChange[]
 }
 
 model KnowledgeAtomRecord {
@@ -48,7 +52,7 @@ model KnowledgeAtomRecord {
 }
 
 model MasterySnapshot {
-  learnerId                 String       @db.Uuid
+  profileId                 String       @db.Uuid
   atomId                    String
   ability                   Ability
   state                     MasteryState
@@ -56,15 +60,15 @@ model MasterySnapshot {
   lastAttemptAt             DateTime?
   lastSuccessfulRetrievalAt DateTime?
   nextReviewAt              DateTime
-  learner                   Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  profile                   Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  @@id([learnerId, atomId, ability])
-  @@index([learnerId, nextReviewAt])
+  @@id([profileId, atomId, ability])
+  @@index([profileId, nextReviewAt])
 }
 
 model EvidenceEvent {
   id                 String       @id @db.Uuid
-  learnerId          String       @db.Uuid
+  profileId          String       @db.Uuid
   sessionId          String       @db.Uuid
   taskId             String
   atomId             String
@@ -77,37 +81,77 @@ model EvidenceEvent {
   confidence         Int
   novelContext       Boolean
   analysisConfidence Float?
-  learner            Learner      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  profile            Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
   session            StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@index([learnerId, atomId, ability, occurredAt])
+  @@index([profileId, atomId, ability, occurredAt])
 }
 
 model StudySession {
   id               String          @id @default(uuid()) @db.Uuid
-  learnerId        String          @db.Uuid
+  profileId        String          @db.Uuid
   durationMinutes  Int
   plan             Json
   currentTaskIndex Int             @default(0)
   status           SessionStatus   @default(ACTIVE)
   startedAt        DateTime
   updatedAt        DateTime        @updatedAt
-  learner          Learner         @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  profile          Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
   evidence         EvidenceEvent[]
 
-  @@index([learnerId, status, updatedAt])
+  @@index([profileId, status, updatedAt])
 }
 
 model LessonProgress {
-  learnerId    String               @db.Uuid
+  profileId    String               @db.Uuid
   lessonId     String
   status       LessonProgressStatus @default(AVAILABLE)
   scoreCorrect Int                  @default(0)
   scoreTotal   Int                  @default(0)
   completedAt  DateTime?
   updatedAt    DateTime             @updatedAt
-  learner      Learner              @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  profile      Profile              @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  @@id([learnerId, lessonId])
-  @@index([learnerId, status])
+  @@id([profileId, lessonId])
+  @@index([profileId, status])
+}
+
+model Device {
+  id         String   @id @db.Uuid
+  profileId  String   @db.Uuid
+  label      String
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, lastSeenAt])
+}
+
+model SyncMutation {
+  mutationId String   @id @db.Uuid
+  profileId  String   @db.Uuid
+  deviceId   String   @db.Uuid
+  kind       String
+  payload    Json
+  status     String   @default("ACKNOWLEDGED")
+  result     Json?
+  createdAt  DateTime @default(now())
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+}
+
+model SyncChange {
+  id         BigInt   @id @default(autoincrement())
+  profileId  String   @db.Uuid
+  entityType String
+  entityId   String
+  operation  String
+  revision   Int
+  payload    Json
+  createdAt  DateTime @default(now())
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, id])
+  @@index([profileId, entityType, entityId, revision])
 }

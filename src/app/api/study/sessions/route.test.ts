@@ -3,7 +3,7 @@ import { POST } from "./route";
 import { startOrResumeSession } from "@/server/repositories/study-repository";
 
 vi.mock("@/server/public-learner", () => ({
-  resolvePublicLearnerId: vi.fn(async () => "00000000-0000-4000-8000-000000000001"),
+  resolvePublicProfileId: vi.fn(async () => "00000000-0000-4000-8000-000000000001"),
 }));
 vi.mock("@/server/repositories/study-repository", () => ({
   startOrResumeSession: vi.fn(),
@@ -17,7 +17,7 @@ it("starts a validated 30-minute session", async () => {
     status: "ACTIVE",
     plan: {
       id: "00000000-0000-4000-8000-000000000100",
-      learnerId: "00000000-0000-4000-8000-000000000001",
+      profileId: "00000000-0000-4000-8000-000000000001",
       durationMinutes: 30,
       createdAt: "2026-07-11T10:00:00.000Z",
       tasks: ["ARRIVAL", "RETRIEVAL", "NEW_CONCEPT", "INPUT", "OUTPUT", "CLOSE"].map(

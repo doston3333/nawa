@@ -1,35 +1,35 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { LEARNER_COOKIE, resolvePublicLearnerId } from "@/server/public-learner";
+import { PROFILE_COOKIE, resolvePublicProfileId } from "@/server/public-learner";
 import { db } from "@/server/db";
 import { logEvent, logLearnerRef } from "@/server/log";
 import { randomUUID } from "node:crypto";
-import { ensureLearner } from "@/server/repositories/study-repository";
+import { ensureProfile } from "@/server/repositories/study-repository";
 
 /**
- * Completes/clears active sessions for the current cookie learner and issues a fresh learner cookie.
+ * Completes/clears active sessions for the current cookie profile and issues a fresh profile cookie.
  */
 export async function POST() {
   try {
     let previousId: string | null = null;
     try {
-      previousId = await resolvePublicLearnerId();
+      previousId = await resolvePublicProfileId();
     } catch {
       previousId = null;
     }
 
     if (previousId) {
       await db.studySession.updateMany({
-        where: { learnerId: previousId, status: "ACTIVE" },
+        where: { profileId: previousId, status: "ACTIVE" },
         data: { status: "COMPLETE" },
       });
-      logEvent("session_reset", { learner: logLearnerRef(previousId) });
+      logEvent("session_reset", { profile: logLearnerRef(previousId) });
     }
 
-    const learnerId = randomUUID();
-    await ensureLearner(learnerId);
+    const profileId = randomUUID();
+    await ensureProfile(profileId);
     const jar = await cookies();
-    jar.set(LEARNER_COOKIE, learnerId, {
+    jar.set(PROFILE_COOKIE, profileId, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") === true,
@@ -39,7 +39,7 @@ export async function POST() {
 
     return NextResponse.json({
       ok: true,
-      learnerId,
+      profileId,
       message: "New anonymous notebook started. Prior active sessions were closed.",
     });
   } catch (error) {

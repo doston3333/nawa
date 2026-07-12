@@ -6,31 +6,31 @@ import { applyEvidence, createInitialSnapshot } from "@/domain/mastery/apply-evi
 import { buildSessionPlan } from "@/domain/sessions/build-session-plan";
 import { db } from "@/server/db";
 
-export async function ensureLearner(learnerId: string): Promise<void> {
-  await db.learner.upsert({
-    where: { id: learnerId },
+export async function ensureProfile(profileId: string): Promise<void> {
+  await db.profile.upsert({
+    where: { id: profileId },
     update: {},
-    create: { id: learnerId },
+    create: { id: profileId, name: "Personal profile" },
   });
 }
 
-export async function assertSessionOwnedBy(sessionId: string, learnerId: string): Promise<SessionPlan> {
+export async function assertSessionOwnedBy(sessionId: string, profileId: string): Promise<SessionPlan> {
   const session = await db.studySession.findUnique({ where: { id: sessionId } });
-  if (!session || session.learnerId !== learnerId) {
-    throw new Error("Session does not belong to this learner");
+  if (!session || session.profileId !== profileId) {
+    throw new Error("Session does not belong to this profile");
   }
   return session.plan as unknown as SessionPlan;
 }
 
 export async function startOrResumeSession(input: {
-  learnerId: string;
+  profileId: string;
   durationMinutes: 30 | 45 | 60;
   now: string;
 }): Promise<StudySessionView> {
-  await ensureLearner(input.learnerId);
+  await ensureProfile(input.profileId);
 
   const active = await db.studySession.findFirst({
-    where: { learnerId: input.learnerId, status: "ACTIVE" },
+    where: { profileId: input.profileId, status: "ACTIVE" },
     orderBy: { updatedAt: "desc" },
   });
   if (active) {
@@ -41,7 +41,7 @@ export async function startOrResumeSession(input: {
     };
   }
 
-  const rows = await db.masterySnapshot.findMany({ where: { learnerId: input.learnerId } });
+  const rows = await db.masterySnapshot.findMany({ where: { profileId: input.profileId } });
   const mastery = rows.map((row) => ({
     ...row,
     lastAttemptAt: row.lastAttemptAt?.toISOString() ?? null,
@@ -54,7 +54,7 @@ export async function startOrResumeSession(input: {
   await db.studySession.create({
     data: {
       id: sessionId,
-      learnerId: input.learnerId,
+      profileId: input.profileId,
       durationMinutes: input.durationMinutes,
       plan: plan as unknown as Prisma.InputJsonValue,
       startedAt: new Date(input.now),
@@ -68,13 +68,13 @@ export async function recordEvidence(input: {
   taskId: string;
   event: EvidenceEvent;
 }): Promise<MasterySnapshot> {
-  await assertSessionOwnedBy(input.sessionId, input.event.learnerId);
+  await assertSessionOwnedBy(input.sessionId, input.event.profileId);
 
   return db.$transaction(async (tx) => {
     const existing = await tx.masterySnapshot.findUnique({
       where: {
-        learnerId_atomId_ability: {
-          learnerId: input.event.learnerId,
+        profileId_atomId_ability: {
+          profileId: input.event.profileId,
           atomId: input.event.atomId,
           ability: input.event.ability,
         },
@@ -88,7 +88,7 @@ export async function recordEvidence(input: {
           nextReviewAt: existing.nextReviewAt.toISOString(),
         } as MasterySnapshot)
       : createInitialSnapshot(
-          input.event.learnerId,
+          input.event.profileId,
           input.event.atomId,
           input.event.ability,
           input.event.occurredAt,
@@ -105,8 +105,8 @@ export async function recordEvidence(input: {
     });
     await tx.masterySnapshot.upsert({
       where: {
-        learnerId_atomId_ability: {
-          learnerId: next.learnerId,
+        profileId_atomId_ability: {
+          profileId: next.profileId,
           atomId: next.atomId,
           ability: next.ability,
         },
@@ -121,7 +121,7 @@ export async function recordEvidence(input: {
         nextReviewAt: new Date(next.nextReviewAt),
       },
       create: {
-        learnerId: next.learnerId,
+        profileId: next.profileId,
         atomId: next.atomId,
         ability: next.ability,
         state: next.state,
@@ -140,10 +140,10 @@ export async function recordEvidence(input: {
 export async function advanceSession(
   sessionId: string,
   nextTaskIndex: number,
-  learnerId?: string,
+  profileId?: string,
 ): Promise<void> {
-  if (learnerId) {
-    await assertSessionOwnedBy(sessionId, learnerId);
+  if (profileId) {
+    await assertSessionOwnedBy(sessionId, profileId);
   }
   const session = await db.studySession.findUniqueOrThrow({ where: { id: sessionId } });
   const plan = session.plan as unknown as SessionPlan;
@@ -156,10 +156,10 @@ export async function advanceSession(
   });
 }
 
-export async function getAbilityCounts(learnerId: string): Promise<Record<Ability, number>> {
+export async function getAbilityCounts(profileId: string): Promise<Record<Ability, number>> {
   const rows = await db.masterySnapshot.groupBy({
     by: ["ability"],
-    where: { learnerId, state: { in: ["RETRIEVED", "APPLIED", "RETAINED"] } },
+    where: { profileId, state: { in: ["RETRIEVED", "APPLIED", "RETAINED"] } },
     _count: { _all: true },
   });
   const counts: Record<Ability, number> = { READING: 0, LISTENING: 0, WRITING: 0, SPEAKING: 0 };

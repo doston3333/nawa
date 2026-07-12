@@ -21,7 +21,7 @@ export interface KnowledgeAtom {
 
 export interface EvidenceEvent {
   id: string;
-  learnerId: string;
+  profileId: string;
   atomId: string;
   ability: Ability;
   occurredAt: string;
@@ -35,7 +35,7 @@ export interface EvidenceEvent {
 }
 
 export interface MasterySnapshot {
-  learnerId: string;
+  profileId: string;
   atomId: string;
   ability: Ability;
   state: MasteryState;
@@ -67,7 +67,7 @@ export type SessionMode = "STUDY_ROOM" | "LESSON";
 
 export interface SessionPlan {
   id: string;
-  learnerId: string;
+  profileId: string;
   durationMinutes: 30 | 45 | 60;
   createdAt: string;
   tasks: SessionTask[];

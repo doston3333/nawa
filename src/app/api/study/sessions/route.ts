@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { resolvePublicLearnerId } from "@/server/public-learner";
+import { resolvePublicProfileId } from "@/server/public-learner";
 import { startOrResumeSession } from "@/server/repositories/study-repository";
 import { checkRateLimit, clientIpFromRequest } from "@/server/rate-limit";
 import { logEvent, logLearnerRef } from "@/server/log";
@@ -30,14 +30,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const learnerId = await resolvePublicLearnerId();
+    const profileId = await resolvePublicProfileId();
     const plan = await startOrResumeSession({
-      learnerId,
+      profileId,
       durationMinutes: parsed.data.durationMinutes,
       now: new Date().toISOString(),
     });
     logEvent("session_started", {
-      learner: logLearnerRef(learnerId),
+      profile: logLearnerRef(profileId),
       sessionId: plan.plan.id,
       durationMinutes: parsed.data.durationMinutes,
       taskIndex: plan.currentTaskIndex,

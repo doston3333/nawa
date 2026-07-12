@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolvePublicLearnerId } from "@/server/public-learner";
+import { resolvePublicProfileId } from "@/server/public-learner";
 import { startLessonSession } from "@/server/repositories/lesson-repository";
 import { checkRateLimit, clientIpFromRequest } from "@/server/rate-limit";
 import { logEvent, logLearnerRef } from "@/server/log";
@@ -16,14 +16,14 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
 
   try {
     const { lessonId } = await context.params;
-    const learnerId = await resolvePublicLearnerId();
+    const profileId = await resolvePublicProfileId();
     const view = await startLessonSession({
-      learnerId,
+      profileId,
       lessonId,
       now: new Date().toISOString(),
     });
     logEvent("lesson_started", {
-      learner: logLearnerRef(learnerId),
+      profile: logLearnerRef(profileId),
       lessonId,
       sessionId: view.plan.id,
     });

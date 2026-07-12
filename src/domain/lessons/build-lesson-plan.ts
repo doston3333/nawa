@@ -2,7 +2,7 @@ import type { KnowledgeAtom, LessonDef, SessionPlan, SessionTask } from "@/domai
 
 export interface BuildLessonPlanInput {
   sessionId: string;
-  learnerId: string;
+  profileId: string;
   lesson: LessonDef;
   atoms: KnowledgeAtom[];
   now: string;
@@ -130,7 +130,7 @@ export function buildLessonPlan(input: BuildLessonPlanInput): SessionPlan {
 
   return {
     id: input.sessionId,
-    learnerId: input.learnerId,
+    profileId: input.profileId,
     durationMinutes: 30,
     createdAt: input.now,
     tasks,

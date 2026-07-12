@@ -16,6 +16,9 @@ export function logEvent(event: string, fields: LogFields = {}): void {
   console.log(JSON.stringify(payload));
 }
 
-export function logLearnerRef(learnerId: string): string {
-  return hashId(learnerId);
+export function logProfileRef(profileId: string): string {
+  return hashId(profileId);
 }
+
+/** @deprecated Use logProfileRef. */
+export const logLearnerRef = logProfileRef;

@@ -8,7 +8,7 @@ const thirtyMinutePlan: StudySessionView = {
   status: "ACTIVE",
   plan: {
     id: "00000000-0000-4000-8000-000000000100",
-    learnerId: "00000000-0000-4000-8000-000000000001",
+    profileId: "00000000-0000-4000-8000-000000000001",
     durationMinutes: 30,
     createdAt: "2026-07-11T10:00:00.000Z",
     tasks: [

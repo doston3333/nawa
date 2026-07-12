@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { EvidenceEvent, SessionPlan } from "@/domain/learning/types";
-import { resolvePublicLearnerId } from "@/server/public-learner";
+import { resolvePublicProfileId } from "@/server/public-learner";
 import {
   advanceSession,
   assertSessionOwnedBy,
@@ -18,7 +18,7 @@ import { db } from "@/server/db";
 
 const eventSchema = z.object({
   id: z.uuid(),
-  learnerId: z.uuid(),
+  profileId: z.uuid(),
   atomId: z.string().min(1),
   ability: z.enum(["READING", "LISTENING", "WRITING", "SPEAKING"]),
   occurredAt: z.iso.datetime(),
@@ -52,10 +52,10 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
   }
 
   try {
-    const learnerId = await resolvePublicLearnerId();
-    const limited = checkRateLimit("attempt", learnerId);
+    const profileId = await resolvePublicProfileId();
+    const limited = checkRateLimit("attempt", profileId);
     if (!limited.allowed) {
-      logEvent("rate_limited", { bucket: "attempt", learner: logLearnerRef(learnerId) });
+      logEvent("rate_limited", { bucket: "attempt", profile: logLearnerRef(profileId) });
       return NextResponse.json(
         {
           error: "Slow down; try again soon.",
@@ -66,15 +66,15 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
       );
     }
 
-    if (parsed.data.event && parsed.data.event.learnerId !== learnerId) {
+    if (parsed.data.event && parsed.data.event.profileId !== profileId) {
       return NextResponse.json(
-        { error: "Attempt does not belong to the active learner" },
+        { error: "Attempt does not belong to the active profile" },
         { status: 403 },
       );
     }
 
     const { sessionId } = await context.params;
-    const plan = await assertSessionOwnedBy(sessionId, learnerId);
+    const plan = await assertSessionOwnedBy(sessionId, profileId);
 
     const mastery = parsed.data.event
       ? await recordEvidence({
@@ -86,17 +86,17 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
 
     if (plan.mode === "LESSON" && plan.lessonId && parsed.data.event) {
       await recordLessonAttemptScore({
-        learnerId,
+        profileId,
         lessonId: plan.lessonId,
         correct: parsed.data.event.correct,
       });
     }
 
-    await advanceSession(sessionId, parsed.data.nextTaskIndex, learnerId);
-    const counts = await getAbilityCounts(learnerId);
+    await advanceSession(sessionId, parsed.data.nextTaskIndex, profileId);
+    const counts = await getAbilityCounts(profileId);
 
     logEvent("attempt_recorded", {
-      learner: logLearnerRef(learnerId),
+      profile: logLearnerRef(profileId),
       sessionId,
       taskId: parsed.data.taskId,
       nextTaskIndex: parsed.data.nextTaskIndex,
@@ -109,17 +109,17 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
 
     if (finished) {
       logEvent("session_completed", {
-        learner: logLearnerRef(learnerId),
+        profile: logLearnerRef(profileId),
         sessionId,
         mode: plan.mode ?? "STUDY_ROOM",
       });
       if (plan.mode === "LESSON" && plan.lessonId) {
         lesson = await completeLessonAfterSession({
-          learnerId,
+          profileId,
           lessonId: plan.lessonId,
         });
         logEvent("lesson_completed", {
-          learner: logLearnerRef(learnerId),
+          profile: logLearnerRef(profileId),
           lessonId: plan.lessonId,
           next: lesson.nextLessonId,
           passed: lesson.passed,
