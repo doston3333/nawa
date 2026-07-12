@@ -34,7 +34,7 @@ services:
       NAWA_UPLOADS_DIR: /app/.data/uploads
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - ./.data:/app/.data
     healthcheck:

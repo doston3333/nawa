@@ -1,15 +1,15 @@
 import "dotenv/config";
 import { createHash } from "node:crypto";
-import { cp, mkdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 
-export function isLocalDatabaseUrl(value) {
+export function isLocalDatabaseUrl(value, { allowComposeHost = process.env.NAWA_COMPOSE_CONTEXT === "true" } = {}) {
   try {
     const parsed = new URL(value);
     const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "db";
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || (allowComposeHost && host === "db");
   } catch {
     return false;
   }
@@ -64,7 +64,17 @@ async function runCommand(command, args) {
   });
 }
 
-export async function restoreBackup(backupDirectory, { cwd = process.cwd(), dryRun = false, commandRunner = runCommand } = {}) {
+export async function restoreBackup(
+  backupDirectory,
+  {
+    cwd = process.cwd(),
+    dryRun = false,
+    commandRunner = runCommand,
+    copyDirectory = (source, destination) => cp(source, destination, { recursive: true }),
+    renamePath = rename,
+    removePath = rm,
+  } = {},
+) {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
   if (!isLocalDatabaseUrl(databaseUrl) && process.env.ALLOW_RESTORE !== "true") {
@@ -76,8 +86,29 @@ export async function restoreBackup(backupDirectory, { cwd = process.cwd(), dryR
   if (dryRun) return { ...backup, uploadsDir, databaseUrl };
   await commandRunner("psql", ["--set", "ON_ERROR_STOP=1", "--dbname", databaseUrl, "--file", backup.dumpPath]);
   await mkdir(dirname(uploadsDir), { recursive: true });
-  await rm(uploadsDir, { recursive: true, force: true });
-  await cp(backup.uploadsPath, uploadsDir, { recursive: true });
+  const stagedUploadsDir = `${uploadsDir}.restore-${process.pid}-${Date.now()}`;
+  const previousUploadsDir = `${uploadsDir}.previous-${process.pid}-${Date.now()}`;
+  await removePath(stagedUploadsDir, { recursive: true, force: true });
+  try {
+    await copyDirectory(backup.uploadsPath, stagedUploadsDir);
+    let movedExisting = false;
+    try {
+      await renamePath(uploadsDir, previousUploadsDir);
+      movedExisting = true;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+    try {
+      await renamePath(stagedUploadsDir, uploadsDir);
+    } catch (error) {
+      if (movedExisting) await renamePath(previousUploadsDir, uploadsDir);
+      throw error;
+    }
+    if (movedExisting) await removePath(previousUploadsDir, { recursive: true, force: true });
+  } catch (error) {
+    await removePath(stagedUploadsDir, { recursive: true, force: true });
+    throw error;
+  }
   return { ...backup, uploadsDir };
 }
 

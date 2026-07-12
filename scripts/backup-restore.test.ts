@@ -113,6 +113,38 @@ describe("local backup and restore safety checks", () => {
     await expect(readFile(join(targetData, "uploads", "scan.png"), "utf8")).resolves.toBe("binary fixture\n");
   });
 
+  it("preserves existing uploads when staging the replacement fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "nawa-restore-failure-"));
+    const backup = join(root, "backup");
+    const targetData = join(root, "restored-data");
+    await mkdir(join(backup, "uploads"), { recursive: true });
+    await mkdir(join(targetData, "uploads"), { recursive: true });
+    await writeFile(join(backup, "nawa.sql"), "-- fixture dump\n");
+    await writeFile(join(backup, "uploads", "new.txt"), "new\n");
+    await writeFile(join(targetData, "uploads", "existing.txt"), "keep\n");
+    await writeFile(
+      join(backup, "manifest.json"),
+      JSON.stringify({
+        format: 1,
+        databaseDump: "nawa.sql",
+        uploadsDirectory: "uploads",
+        databaseDumpSha256: await hashFile(join(backup, "nawa.sql")),
+      }),
+    );
+    process.env.DATABASE_URL = "postgresql://nawa:nawa_local@localhost:5439/nawa";
+    process.env.NAWA_DATA_DIR = targetData;
+    await expect(
+      restoreBackup(backup, {
+        commandRunner: async () => {},
+        copyDirectory: async () => {
+          throw new Error("copy failed");
+        },
+      }),
+    ).rejects.toThrow("copy failed");
+    await expect(readFile(join(targetData, "uploads", "existing.txt"), "utf8")).resolves.toBe("keep\n");
+    await expect(readFile(join(targetData, "uploads", "new.txt"), "utf8")).rejects.toThrow();
+  });
+
   it("rejects a missing backup directory", async () => {
     await expect(validateBackupDirectory("/tmp/nawa-backup-does-not-exist")).rejects.toThrow(/manifest is missing or invalid/i);
   });
@@ -125,7 +157,8 @@ describe("local backup and restore safety checks", () => {
 
   it("classifies local database hosts used by Compose and the host machine", () => {
     expect(isLocalDatabaseUrl("postgresql://nawa:nawa_local@localhost:5439/nawa")).toBe(true);
-    expect(isLocalDatabaseUrl("postgresql://nawa:nawa_local@db:5432/nawa")).toBe(true);
+    expect(isLocalDatabaseUrl("postgresql://nawa:nawa_local@db:5432/nawa")).toBe(false);
+    expect(isLocalDatabaseUrl("postgresql://nawa:nawa_local@db:5432/nawa", { allowComposeHost: true })).toBe(true);
     expect(isLocalDatabaseUrl("postgresql://nawa:nawa_local@[::1]:5439/nawa")).toBe(true);
     expect(isLocalDatabaseUrl("postgresql://nawa:secret@db.example.com/nawa")).toBe(false);
   });

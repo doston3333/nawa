@@ -1,4 +1,4 @@
-# Production image for container hosts (Fly, Railway, Render, etc.)
+# Production image for the private local/VPS Compose deployment.
 FROM node:24-bookworm-slim AS base
 RUN corepack enable \
   && apt-get update \

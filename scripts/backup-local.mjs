@@ -36,8 +36,6 @@ export async function createBackup({ cwd = process.cwd(), now = new Date(), dryR
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
   const { uploadsDir, backupRoot } = localPaths(cwd);
-  await mkdir(uploadsDir, { recursive: true });
-  await mkdir(backupRoot, { recursive: true });
   const destination = join(backupRoot, timestampLabel(now));
   const temporary = `${destination}.tmp-${process.pid}`;
   const dumpPath = join(temporary, "nawa.sql");
@@ -48,6 +46,8 @@ export async function createBackup({ cwd = process.cwd(), now = new Date(), dryR
     return { destination, dumpPath: join(destination, "nawa.sql"), uploads: join(destination, "uploads"), databaseUrl };
   }
 
+  await mkdir(uploadsDir, { recursive: true });
+  await mkdir(backupRoot, { recursive: true });
   await mkdir(temporary, { recursive: true });
   try {
     await commandRunner("pg_dump", ["--clean", "--if-exists", "--no-owner", "--no-privileges", "--file", dumpPath, databaseUrl]);
