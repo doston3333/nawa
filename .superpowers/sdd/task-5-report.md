@@ -12,11 +12,35 @@ Implemented the Task 5 offline boundary for lessons and Study Room sessions.
 - Refreshed status after local mutations and safely handled environments without IndexedDB or browser storage.
 - Stored the selected profile ID in browser storage as a cache lookup hint; the server profile cookie remains authoritative.
 
-## Verification
+## Commits
 
-- Focused offline/status tests: 4 passed
-- Full Vitest suite: 42 files, 110 tests passed
-- TypeScript: passed
-- ESLint: passed
-- Production build: passed
-- `git diff --check`: passed
+- `82dbe59 feat: make learning sessions offline-safe`
+- `097d451 fix: harden offline session restore coverage`
+
+## Verification (2026-07-12)
+
+Commands run from `/Users/doston/Downloads/nawa`:
+
+```text
+$ pnpm vitest run src/features/learn src/features/study-room src/features/offline
+Test Files  9 passed (9)
+Tests       17 passed (17)
+
+$ pnpm test
+Test Files  43 passed (43)
+Tests       116 passed (116)
+
+$ pnpm typecheck
+tsc --noEmit (passed; no output)
+
+$ pnpm lint
+eslint . (passed; no output)
+
+$ pnpm build
+Next.js production build passed; TypeScript passed; 15 routes generated.
+
+$ git diff --check
+PASS (exit 0)
+```
+
+The focused coverage now includes a reload-like lesson restore from IndexedDB, Study Room local advancement plus queued mutation and restore, deterministic latest-active cache selection, and all four keyboard-readable SyncStatus states.
