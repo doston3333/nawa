@@ -4,7 +4,7 @@
 
 **Goal:** Add passwordless named profiles, profile-owned learning state, an idempotent synchronization protocol, browser outbox storage, and an offline-capable application shell for two or three personal users.
 
-**Architecture:** PostgreSQL remains canonical. A `Profile` owns existing learning records, and a `SyncMutation` ledger makes replay safe. Browsers use native IndexedDB for profile-scoped cached state and an outbox; a small client synchronizer pushes mutations and pulls a cursor-based change feed. A versioned service worker caches the shell and previously loaded curriculum/session data without claiming that first-time imports or AI work offline.
+**Architecture:** PostgreSQL remains canonical. A `Profile` owns existing learning records, and a `SyncMutation` ledger makes replay safe. Browsers use native IndexedDB for profile-scoped cached state and an outbox; a small client synchronizer pushes mutations and pulls a cursor-based change feed. A versioned service worker precaches only public shell/static assets, then runtime-caches successfully loaded generic learning route shells without placing profile-specific API payloads in Cache Storage.
 
 **Tech Stack:** Next.js 16 App Router, React 19, TypeScript 5.9, Prisma 7/PostgreSQL, native IndexedDB, browser Service Worker API, Vitest/Testing Library, Playwright.
 
@@ -530,7 +530,7 @@ Assert that the registration component calls `navigator.serviceWorker.register("
 
 - [ ] **Step 2: Implement `public/sw.js`**
 
-Use cache name `nawa-shell-v1`. On install, cache `/`, `/learn`, `/study`, `/manifest.webmanifest`, and the icon assets. On activate, remove older `nawa-shell-*` caches. For GET requests, serve cache-first for same-origin shell/assets and network-first for `/api/learn/path`, `/api/study/sessions`, and other safe GET payloads. Never intercept POST/PUT/PATCH/DELETE requests.
+Use cache name `nawa-shell-v2`; this intentional security version bump supersedes the earlier v1 sketch because profile-picker and profile-specific responses must not be retained. On install, precache only public `/`, `/manifest.webmanifest`, and icon assets. On activate, remove older `nawa-shell-*` caches. For GET requests, serve cache-first for same-origin public shell/static assets plus `/learn` and `/study` after a successful online load. Cache those learning routes only when the response is a non-redirected `200`; a redirect to `/profiles` (or any other profile-picker response) is never cached. Keep profile-specific API payloads network-only in the service worker; the profile-scoped IndexedDB layer owns offline data. Never intercept POST/PUT/PATCH/DELETE requests.
 
 - [ ] **Step 3: Implement registration and cache-safe headers**
 

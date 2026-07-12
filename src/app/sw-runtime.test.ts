@@ -88,7 +88,8 @@ describe("service-worker runtime", () => {
     const requested: string[] = [];
     const worker = loadWorker({
       fetch: async (input) => {
-        const path = new URL(input.toString(), "https://nawa.test").pathname;
+        const raw = typeof input === "object" && input !== null && "url" in input ? String(input.url) : input.toString();
+        const path = new URL(raw, "https://nawa.test").pathname;
         requested.push(path);
         if (path === "/profiles") {
           return Response.redirect("https://nawa.test/choose", 302);
@@ -99,7 +100,7 @@ describe("service-worker runtime", () => {
 
     await worker.dispatch("install");
 
-    expect(requested).toEqual(["/", "/profiles", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"]);
+    expect(requested).toEqual(["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"]);
     expect(worker.cachePutCalls).toEqual(["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"]);
     expect(worker.cachePutCalls).not.toContain("/profiles");
     expect(worker.cachePutCalls).not.toContain("/learn");
@@ -138,6 +139,60 @@ describe("service-worker runtime", () => {
     expect(await (await worker.dispatch("fetch", { request }))?.text()).toBe("static");
     expect(await (await worker.dispatch("fetch", { request }))?.text()).toBe("static");
     expect(fetchCount).toBe(1);
+  });
+
+  it("caches successfully loaded learning shells while keeping profile routes out of Cache Storage", async () => {
+    const requested: string[] = [];
+    let online = true;
+    const worker = loadWorker({
+      fetch: async (input) => {
+        if (!online) throw new Error("offline");
+        const raw = typeof input === "object" && input !== null && "url" in input ? String(input.url) : input.toString();
+        const path = new URL(raw, "https://nawa.test").pathname;
+        requested.push(path);
+        return new Response(path, { status: 200 });
+      },
+    });
+
+    for (const path of ["/learn", "/study", "/profiles"]) {
+      const response = await worker.dispatch("fetch", {
+        request: new Request(`https://nawa.test${path}`),
+      });
+      if (path === "/profiles") {
+        expect(response).toBeUndefined();
+      } else {
+        expect(response?.status).toBe(200);
+      }
+    }
+
+    online = false;
+    for (const path of ["/learn", "/study"]) {
+      const response = await worker.dispatch("fetch", {
+        request: new Request(`https://nawa.test${path}`),
+      });
+      expect(response?.status).toBe(200);
+      expect(await response?.text()).toBe(path);
+    }
+
+    expect(requested).toEqual(["/learn", "/study"]);
+    expect(worker.cachePutCalls).toEqual(["https://nawa.test/learn", "https://nawa.test/study"]);
+  });
+
+  it("does not cache redirected learning shells or profile-picker responses", async () => {
+    const worker = loadWorker({
+      fetch: async (input) => {
+        const raw = typeof input === "object" && input !== null && "url" in input ? String(input.url) : input.toString();
+        const path = new URL(raw, "https://nawa.test").pathname;
+        if (path === "/learn") return Response.redirect("https://nawa.test/profiles", 302);
+        const response = new Response("profile picker", { status: 200 });
+        Object.defineProperty(response, "redirected", { value: true });
+        return response;
+      },
+    });
+
+    expect((await worker.dispatch("fetch", { request: new Request("https://nawa.test/learn") }))?.status).toBe(302);
+    expect(await worker.dispatch("fetch", { request: new Request("https://nawa.test/profiles") })).toBeUndefined();
+    expect(worker.cachePutCalls).toEqual([]);
   });
 
   it("does not cache profile APIs and returns a safe offline fallback", async () => {

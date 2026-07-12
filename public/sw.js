@@ -1,17 +1,20 @@
 const CACHE_NAME = "nawa-shell-v2";
 const SHELL_ASSETS = [
   "/",
-  "/profiles",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
+// Learning route documents are generic shells. They become safe to cache only
+// after the selected profile has loaded them successfully at runtime.
+const SAFE_LEARNING_ROUTES = new Set(["/learn", "/study"]);
 
 const isSameOrigin = (url) => url.origin === self.location.origin;
 const isApiRequest = (url) => url.pathname.startsWith("/api/");
 const isCacheableResponse = (response) => response.status === 200 && !response.redirected;
 const isPublicStaticAsset = (request, url) =>
   SHELL_ASSETS.includes(url.pathname) ||
+  SAFE_LEARNING_ROUTES.has(url.pathname) ||
   url.pathname.startsWith("/_next/static/") ||
   url.pathname.startsWith("/icons/") ||
   url.pathname.startsWith("/fonts/") ||
