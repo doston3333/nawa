@@ -33,10 +33,15 @@ Implemented and verified the service-worker shell boundary.
 
 ## Verification
 
-- `pnpm vitest run src/app/sw-runtime.test.ts src/app/sw.test.tsx` — 2 files, 9 tests passed
-- `pnpm test` — 45 files, 125 tests passed
+- `pnpm vitest run src/app/sw-runtime.test.ts src/app/sw.test.tsx` — 2 files, 11 tests passed
+- `pnpm test` — 45 files, 127 tests passed
 - `pnpm typecheck` — passed
 - `pnpm lint` — passed
 - `pnpm build` — passed
 - `node --check public/sw.js` — passed
 - `git diff --check` — passed
+
+Profile-specific API payloads remain network-only in the service worker until the
+profile-scoped IndexedDB fallback is wired into each consuming screen. Session
+hooks already use that fallback; the Learn path and Language Ink consumers remain
+part of the cross-device/content follow-up milestone.
