@@ -4,7 +4,9 @@ import { ACTIVE_COURSE } from "@/domain/course/catalog";
 import { db } from "@/server/db";
 import {
   getActiveCoursePathContract,
+  getDueReviewProjection,
   getVersionedLearnPath,
+  recordCourseAttemptWithinTransaction,
   startVersionedLessonSession,
   validateActiveCourseLesson,
   validateActiveCourseSkill,
@@ -12,13 +14,18 @@ import {
 
 const profileId = randomUUID();
 const otherProfileId = randomUUID();
+const reviewProfileId = randomUUID();
 
 beforeAll(async () => {
-  await db.profile.createMany({ data: [{ id: profileId, name: "Course learner" }, { id: otherProfileId, name: "Other learner" }] });
+  await db.profile.createMany({ data: [
+    { id: profileId, name: "Course learner" },
+    { id: otherProfileId, name: "Other learner" },
+    { id: reviewProfileId, name: "Review learner" },
+  ] });
 });
 
 afterAll(async () => {
-  await db.profile.deleteMany({ where: { id: { in: [profileId, otherProfileId] } } });
+  await db.profile.deleteMany({ where: { id: { in: [profileId, otherProfileId, reviewProfileId] } } });
   await db.$disconnect();
 });
 
@@ -67,6 +74,27 @@ it("creates a session task for every authored course lesson step", async () => {
 
   expect(started.plan.tasks.map((task) => task.id)).toEqual(lesson.steps.map((step) => step.id));
   expect(started.plan.tasks).toHaveLength(lesson.steps.length);
+});
+
+it("schedules an incorrect course attempt for immediate repair", async () => {
+  const lesson = ACTIVE_COURSE.units[0]!.lessons[0]!;
+  const occurredAt = "2026-07-14T12:00:00.000Z";
+  await db.$transaction((tx) => recordCourseAttemptWithinTransaction({
+    id: randomUUID(),
+    profileId: reviewProfileId,
+    courseId: ACTIVE_COURSE.id,
+    curriculumVersion: ACTIVE_COURSE.version,
+    lessonId: lesson.id,
+    skillId: lesson.skillIds[0]!,
+    exerciseType: "SCORED_TEST",
+    correct: false,
+    responseTimeMs: 1200,
+    hintUsed: false,
+    occurredAt,
+  }, tx));
+
+  const due = await getDueReviewProjection(reviewProfileId, new Date(occurredAt));
+  expect(due).toContainEqual(expect.objectContaining({ skillId: lesson.skillIds[0]!, dueAt: occurredAt }));
 });
 
 it("projects only versioned skill progress into the public active path", async () => {

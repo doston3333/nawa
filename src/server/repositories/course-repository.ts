@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { ACTIVE_COURSE } from "@/domain/course/catalog";
+import { reviewIntervalDays } from "@/domain/course/review-schedule";
 import type { CourseLevel, LessonDefinition, SkillDefinition } from "@/domain/course/types";
 import { ACTIVE_LESSONS, ACTIVE_UNITS } from "@/domain/curriculum/path";
 import type { LearnPathView, SessionPlan, SessionTask, StudySessionView } from "@/domain/learning/types";
@@ -255,13 +256,25 @@ export async function recordCourseAttemptWithinTransaction(input: {
     update: { attemptCount, correctCount, status, masteredAt: mastered ? new Date(input.occurredAt) : null },
     create: { profileId: input.profileId, courseId: input.courseId, curriculumVersion: input.curriculumVersion, skillId: input.skillId, attemptCount, correctCount, status, masteredAt: mastered ? new Date(input.occurredAt) : null },
   });
-  if (input.correct) {
-    const dueAt = new Date(new Date(input.occurredAt).getTime() + skill.reviewRule.afterDays * 86_400_000);
-    await tx.courseReview.upsert({
-      where: progressKey,
-      update: { dueAt, lastReviewedAt: new Date(input.occurredAt) },
-      create: { profileId: input.profileId, courseId: input.courseId, curriculumVersion: input.curriculumVersion, skillId: input.skillId, dueAt, lastReviewedAt: new Date(input.occurredAt) },
-    });
-  }
+  const intervalDays = reviewIntervalDays({
+    attemptCount: current?.attemptCount ?? 0,
+    correctCount: current?.correctCount ?? 0,
+    correct: input.correct,
+    hintUsed: input.hintUsed,
+  });
+  const reviewedAt = new Date(input.occurredAt);
+  const dueAt = new Date(reviewedAt.getTime() + intervalDays * 86_400_000);
+  await tx.courseReview.upsert({
+    where: progressKey,
+    update: { dueAt, lastReviewedAt: reviewedAt },
+    create: {
+      profileId: input.profileId,
+      courseId: input.courseId,
+      curriculumVersion: input.curriculumVersion,
+      skillId: input.skillId,
+      dueAt,
+      lastReviewedAt: reviewedAt,
+    },
+  });
   return tx.courseAttempt.findUnique({ where: { id: input.id } });
 }
