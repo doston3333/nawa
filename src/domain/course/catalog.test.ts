@@ -66,3 +66,11 @@ it("publishes unique selectable answers for every course exercise", () => {
     }
   }
 });
+
+it("uses named, varied Pre-A1 lesson material instead of placeholder lessons", () => {
+  for (const unit of ACTIVE_COURSE.units) {
+    const coreLessons = unit.lessons.filter((lesson) => lesson.kind === "LESSON");
+    expect(coreLessons.some((lesson) => lesson.title.startsWith("Core lesson")), unit.id).toBe(false);
+    expect(new Set(coreLessons.map((lesson) => lesson.steps[0]!.arabic)).size, unit.id).toBeGreaterThanOrEqual(5);
+  }
+});

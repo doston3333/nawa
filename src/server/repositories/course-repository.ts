@@ -149,7 +149,11 @@ export async function startVersionedLessonSession(input: {
     if (active) {
       const plan = active.plan as unknown as SessionPlan;
       if (active.courseId === input.courseId && active.curriculumVersion === input.curriculumVersion && active.lessonId === input.lessonId) {
-        return { plan, currentTaskIndex: active.currentTaskIndex, status: active.status };
+        const authoredStepIds = courseLesson.steps.map((step) => step.id);
+        const planMatchesAuthoredSteps = plan.tasks.map((task) => task.id).every((id, index) => id === authoredStepIds[index]) && plan.tasks.length === authoredStepIds.length;
+        if (planMatchesAuthoredSteps) {
+          return { plan, currentTaskIndex: active.currentTaskIndex, status: active.status };
+        }
       }
       await tx.studySession.update({ where: { id: active.id }, data: { status: "COMPLETE" } });
     }

@@ -13,16 +13,63 @@ import { validateCourseCatalog } from "./validate";
 export * from "./types";
 export { validateCourseCatalog } from "./validate";
 
-const UNIT_SPECS = [
-  ["rtl-baseline", "RTL and baseline", "Read and write from right to left", "ا"],
-  ["letter-families-i", "Letter families I", "Recognize shared letter shapes", "ب ت ث"],
-  ["letter-families-ii", "Letter families II", "Distinguish more dot patterns", "ج ح خ"],
-  ["connections", "Connections", "Join Arabic letters correctly", "بـ ـبـ ـب"],
-  ["short-vowels-sukun", "Short vowels and sukun", "Decode short vowel marks", "بَ بِ بُ بْ"],
-  ["long-vowels-shadda-tanwin", "Long vowels, shadda and tanwin", "Read common sound marks", "بَا بِي بُو"],
-  ["special-orthography", "Special orthography", "Recognize frequent special forms", "ة ى ء"],
-  ["decoding-first-phrases", "Decoding and first phrases", "Read and write first MSA phrases", "بَيْتٌ كَبِيرٌ"],
-] as const;
+interface UnitSpec {
+  id: string;
+  title: string;
+  subtitle: string;
+  lessons: readonly { title: string; arabic: string }[];
+}
+
+const UNIT_SPECS: readonly UnitSpec[] = [
+  { id: "rtl-baseline", title: "RTL and baseline", subtitle: "Read and write from right to left", lessons: [
+    { title: "Right to left", arabic: "ا" }, { title: "Find the baseline", arabic: "ب" },
+    { title: "Keep one direction", arabic: "ت" }, { title: "Space a word", arabic: "اب" },
+    { title: "Follow the line", arabic: "بت" }, { title: "Read a short run", arabic: "ابت" },
+    { title: "Copy with a baseline", arabic: "باب" }, { title: "First direction check", arabic: "بيت" },
+  ] },
+  { id: "letter-families-i", title: "Letter families I", subtitle: "Recognize shared letter shapes", lessons: [
+    { title: "One dot below: ب", arabic: "ب" }, { title: "Two dots above: ت", arabic: "ت" },
+    { title: "Three dots above: ث", arabic: "ث" }, { title: "The ب ت ث family", arabic: "بتث" },
+    { title: "One dot above: ن", arabic: "ن" }, { title: "Two dots below: ي", arabic: "ي" },
+    { title: "No dots: ا", arabic: "ا" }, { title: "Family I recall", arabic: "بيت" },
+  ] },
+  { id: "letter-families-ii", title: "Letter families II", subtitle: "Distinguish more dot patterns", lessons: [
+    { title: "The ج shape", arabic: "ج" }, { title: "The ح shape", arabic: "ح" },
+    { title: "The خ shape", arabic: "خ" }, { title: "The ج ح خ family", arabic: "جحخ" },
+    { title: "The د and ذ family", arabic: "د ذ" }, { title: "The ر and ز family", arabic: "ر ز" },
+    { title: "Spot the dot", arabic: "خز" }, { title: "Family II recall", arabic: "خبز" },
+  ] },
+  { id: "connections", title: "Connections", subtitle: "Join Arabic letters correctly", lessons: [
+    { title: "Initial forms", arabic: "بـ" }, { title: "Medial forms", arabic: "ـبـ" },
+    { title: "Final forms", arabic: "ـب" }, { title: "Letters that do not join", arabic: "د ر" },
+    { title: "Connect two letters", arabic: "بت" }, { title: "Break after د", arabic: "بد" },
+    { title: "Build بيت", arabic: "بيت" }, { title: "Connection recall", arabic: "باب" },
+  ] },
+  { id: "short-vowels-sukun", title: "Short vowels and sukun", subtitle: "Decode short vowel marks", lessons: [
+    { title: "Fatha: ـَ", arabic: "بَ" }, { title: "Kasra: ـِ", arabic: "بِ" },
+    { title: "Damma: ـُ", arabic: "بُ" }, { title: "Sukun: ـْ", arabic: "بْ" },
+    { title: "Read بَتَ", arabic: "بَتَ" }, { title: "Read بِنت", arabic: "بِنْت" },
+    { title: "Read كُتُب", arabic: "كُتُب" }, { title: "Vowel recall", arabic: "بَيْت" },
+  ] },
+  { id: "long-vowels-shadda-tanwin", title: "Long vowels, shadda and tanwin", subtitle: "Read common sound marks", lessons: [
+    { title: "Long ā with ا", arabic: "بَا" }, { title: "Long ī with ي", arabic: "بِي" },
+    { title: "Long ū with و", arabic: "بُو" }, { title: "Shadda: ـّ", arabic: "بّ" },
+    { title: "Tanwin fatḥ", arabic: "بً" }, { title: "Tanwin kasr", arabic: "بٍ" },
+    { title: "Tanwin ḍamm", arabic: "بٌ" }, { title: "Length and mark recall", arabic: "كِتَابٌ" },
+  ] },
+  { id: "special-orthography", title: "Special orthography", subtitle: "Recognize frequent special forms", lessons: [
+    { title: "Tāʾ marbūṭa", arabic: "ة" }, { title: "Alif maqṣūra", arabic: "ى" },
+    { title: "Hamza", arabic: "ء" }, { title: "Lām-alif", arabic: "لا" },
+    { title: "Definite article", arabic: "ال" }, { title: "Sun and moon letters", arabic: "الشمس" },
+    { title: "Read مدرسة", arabic: "مَدْرَسَة" }, { title: "Special forms recall", arabic: "هَذِهِ" },
+  ] },
+  { id: "decoding-first-phrases", title: "Decoding and first phrases", subtitle: "Read and write first MSA phrases", lessons: [
+    { title: "A greeting", arabic: "مَرْحَبًا" }, { title: "My name", arabic: "اِسْمِي" },
+    { title: "This is a book", arabic: "هَذَا كِتَاب" }, { title: "A big house", arabic: "بَيْتٌ كَبِيرٌ" },
+    { title: "I read", arabic: "أَنَا أَقْرَأُ" }, { title: "I write", arabic: "أَنَا أَكْتُبُ" },
+    { title: "A short sentence", arabic: "هَذِهِ مَدْرَسَة" }, { title: "First phrases recall", arabic: "أَنَا طَالِبٌ" },
+  ] },
+];
 
 const VARIANTS: readonly StepKind[] = [
   "TEACHING", "COMPARISON", "MATCHING", "SORTING", "WORD_TILES", "SENTENCE_ORDERING",
@@ -56,11 +103,11 @@ function step(unitId: string, lessonOrder: number, stepOrder: number, arabic: st
   return { ...base, kind, exercise: exerciseDefinition };
 }
 
-function lesson(unitId: string, order: number, skillId: string, arabic: string, kind: "LESSON" | "CHECKPOINT" = "LESSON"): LessonDefinition {
+function lesson(unitId: string, order: number, skillId: string, arabic: string, title: string, kind: "LESSON" | "CHECKPOINT" = "LESSON"): LessonDefinition {
   const steps = Array.from({ length: 10 }, (_, index) => step(unitId, order, index + 1, arabic));
   return {
     id: `${unitId}-${kind === "CHECKPOINT" ? "checkpoint" : `lesson-${order}`}`,
-    title: kind === "CHECKPOINT" ? "Unit checkpoint" : `Core lesson ${order}`,
+    title: kind === "CHECKPOINT" ? "Unit checkpoint" : title,
     order,
     kind,
     skillIds: kind === "CHECKPOINT" ? [`${unitId}-skill-8`] : [skillId],
@@ -85,16 +132,22 @@ function skill(unitId: string, index: number, arabic: string, predecessor?: stri
   };
 }
 
-function unit(spec: (typeof UNIT_SPECS)[number], order: number, predecessor?: string): { unit: CourseUnit; skills: SkillDefinition[] } {
-  const [id, title, subtitle, arabic] = spec;
-  const skills = Array.from({ length: 8 }, (_, index) => skill(id, index + 1, arabic, index === 0 ? predecessor : `${id}-skill-${index}`));
+function unit(spec: UnitSpec, order: number, predecessor?: string): { unit: CourseUnit; skills: SkillDefinition[] } {
+  const { id, title, subtitle } = spec;
+  const skills = spec.lessons.map((lessonSpec, index) => skill(id, index + 1, lessonSpec.arabic, index === 0 ? predecessor : `${id}-skill-${index}`));
   return {
-    unit: { id, title, subtitle, order, lessons: [...skills.map((item, index) => lesson(id, index + 1, item.id, arabic)), lesson(id, 9, `${id}-skill-8`, arabic, "CHECKPOINT")] },
+    unit: {
+      id, title, subtitle, order,
+      lessons: [
+        ...skills.map((item, index) => lesson(id, index + 1, item.id, spec.lessons[index]!.arabic, spec.lessons[index]!.title)),
+        lesson(id, 9, `${id}-skill-8`, spec.lessons[7]!.arabic, "Unit checkpoint", "CHECKPOINT"),
+      ],
+    },
     skills,
   };
 }
 
-const assembled = UNIT_SPECS.map((spec, index) => unit(spec, index + 1, index === 0 ? undefined : `${UNIT_SPECS[index - 1]![0]}-skill-8`));
+const assembled = UNIT_SPECS.map((spec, index) => unit(spec, index + 1, index === 0 ? undefined : `${UNIT_SPECS[index - 1]!.id}-skill-8`));
 
 export const ACTIVE_COURSE: CourseLevel = deepFreeze({
   id: "pre-a1-v1",
