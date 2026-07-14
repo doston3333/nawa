@@ -79,6 +79,7 @@ export function useLessonSession(lessonId: string) {
   const [requestKey, setRequestKey] = useState(0);
   const [internetRequired, setInternetRequired] = useState(false);
   const [scoredChecks, setScoredChecks] = useState({ correct: 0, total: 0 });
+  const [earnedRewards, setEarnedRewards] = useState<{ xp: number; ink: number }[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,6 +172,7 @@ export function useLessonSession(lessonId: string) {
         if (!response.ok) throw httpError(body.error ?? "Unable to save this attempt", response.status);
         if (body.counts) setCounts(body.counts);
         if (body.lesson?.nextLessonId) setNextLessonId(body.lesson.nextLessonId);
+        if (Array.isArray(body.rewards)) setEarnedRewards(body.rewards);
         setInternetRequired(false);
         const nextView: StudySessionView = {
           ...view,
@@ -233,6 +235,7 @@ export function useLessonSession(lessonId: string) {
     submitting,
     counts,
     scoredChecks,
+    earnedRewards,
     nextLessonId,
     submitAttempt,
     retry,

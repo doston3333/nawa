@@ -119,8 +119,8 @@ it("keeps the task in place for a server validation error", async () => {
   expect(await listPendingMutations(profileId)).toHaveLength(0);
 });
 
-it("submits locally evaluated course metadata and completes the final step", async () => {
-  const completed = { ...sessionView, currentTaskIndex: 1, status: "COMPLETE" as const };
+it("submits locally evaluated course metadata, completes the final step, and exposes server awards", async () => {
+  const completed = { ...sessionView, currentTaskIndex: 1, status: "COMPLETE" as const, rewards: [{ xp: 30, ink: 0 }] };
   const fetchMock = vi.spyOn(globalThis, "fetch")
     .mockResolvedValueOnce(new Response(JSON.stringify(sessionView), { status: 201 }))
     .mockResolvedValueOnce(new Response(JSON.stringify(completed), { status: 200 }));
@@ -138,4 +138,5 @@ it("submits locally evaluated course metadata and completes the final step", asy
   const body = JSON.parse(String(request.body));
   expect(body.event).toMatchObject({ curriculumVersion: 1, skillId: "rtl-baseline-skill-1", exerciseType: "SCORED_TEST", hintUsed: false, correct: true });
   expect(session.result.current.view?.status).toBe("COMPLETE");
+  expect(session.result.current.earnedRewards).toEqual([{ xp: 30, ink: 0 }]);
 });

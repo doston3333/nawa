@@ -75,6 +75,12 @@ export function LessonRunner({ lessonId, title }: { lessonId: string; title?: st
         {session.scoredChecks.total ? (
           <p className="path-lede">Mastery summary: {session.scoredChecks.correct} of {session.scoredChecks.total} final scored checks correct.</p>
         ) : null}
+        {session.earnedRewards.length ? (
+          <p className="lesson-reward" role="status">
+            Earned {session.earnedRewards.reduce((sum, reward) => sum + reward.xp, 0)} XP
+            {session.earnedRewards.reduce((sum, reward) => sum + reward.ink, 0) ? ` and ${session.earnedRewards.reduce((sum, reward) => sum + reward.ink, 0)} Ink` : ""}.
+          </p>
+        ) : null}
         <ProgressSummary counts={session.counts} />
         <div className="complete-actions">
           {session.nextLessonId ? (

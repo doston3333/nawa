@@ -12,6 +12,7 @@ import { recordCourseAttemptWithinTransaction, validateActiveCourseLesson } from
 import { checkRateLimit } from "@/server/rate-limit";
 import { logEvent, logLearnerRef } from "@/server/log";
 import { db } from "@/server/db";
+import { completionReward, grantRewardWithinTransaction, passesMasteryCheck } from "@/server/rewards/reward-ledger";
 
 const eventSchema = z.object({
   id: z.uuid(),
@@ -123,6 +124,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
     });
 
     let lesson: { completed: boolean; nextLessonId: string | null; passed?: boolean } | null = null;
+    let rewards: { xp: number; ink: number }[] = [];
     const finished = !replayed && parsed.data.nextTaskIndex >= plan.tasks.length;
 
     if (finished) {
@@ -131,8 +133,33 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
         sessionId,
         mode: plan.mode ?? "STUDY_ROOM",
       });
-      if (sessionRecord?.courseId && sessionRecord.lessonId) {
+      if (sessionRecord?.courseId && sessionRecord.curriculumVersion !== null && sessionRecord.lessonId) {
         lesson = { completed: true, nextLessonId: null, passed: true };
+        const courseLesson = validateActiveCourseLesson(sessionRecord.courseId, sessionRecord.curriculumVersion, sessionRecord.lessonId);
+        const scoreRows = await db.evidenceEvent.findMany({
+          where: { sessionId, exerciseType: "SCORED_TEST" },
+          select: { correct: true },
+        });
+        const awarded = await db.$transaction(async (tx) => {
+          const grants = [await grantRewardWithinTransaction(tx, {
+            profileId,
+            originKey: `completion:${sessionId}`,
+            ...completionReward(courseLesson.kind),
+            occurredAt: new Date(),
+          })];
+          const correct = scoreRows.filter((row) => row.correct).length;
+          if (courseLesson.kind === "LESSON" && passesMasteryCheck(correct, scoreRows.length)) {
+            grants.push(await grantRewardWithinTransaction(tx, {
+              profileId,
+              originKey: `mastery:${sessionId}`,
+              reason: "MASTERY_CHECK",
+              xp: 20,
+              occurredAt: new Date(),
+            }));
+          }
+          return grants.filter((grant) => grant.granted).map(({ xp, ink }) => ({ xp, ink }));
+        });
+        rewards = awarded;
         logEvent("lesson_completed", {
           profile: logLearnerRef(profileId),
           lessonId: plan.lessonId,
@@ -150,6 +177,7 @@ export async function POST(request: Request, context: { params: Promise<{ sessio
       mastery,
       counts,
       lesson,
+      rewards,
       status: replayed ? (session?.status ?? "ACTIVE") : finished ? "COMPLETE" : "ACTIVE",
       plan: livePlan,
     });

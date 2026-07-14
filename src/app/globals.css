@@ -214,6 +214,17 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   gap: 0.65rem;
 }
 
+.lesson-reward {
+  display: inline-block;
+  margin: 1rem 0 0;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--saffron) 55%, var(--border));
+  border-radius: 999px;
+  background: var(--saffron-soft);
+  color: var(--ink);
+  font-weight: 650;
+}
+
 .profile-create-row input {
   flex: 1 1 12rem;
   min-height: 2.75rem;

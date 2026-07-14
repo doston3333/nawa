@@ -48,6 +48,8 @@ model Profile {
   courseSkills      CourseSkillProgress[]
   courseReviews     CourseReview[]
   courseAttempts    CourseAttempt[]
+  rewardLedger      RewardLedger[]
+  dailyActivity     DailyActivity[]
 }
 
 model KnowledgeAtomRecord {
@@ -229,4 +231,27 @@ model CourseAttempt {
 
   @@index([profileId, courseId, curriculumVersion, skillId, occurredAt])
   @@index([profileId, courseId, curriculumVersion, lessonId])
+}
+
+model RewardLedger {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String   @db.Uuid
+  originKey String
+  reason    String
+  xp        Int
+  ink       Int      @default(0)
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, originKey])
+  @@index([profileId, createdAt])
+}
+
+model DailyActivity {
+  profileId String   @db.Uuid
+  day       DateTime @db.Date
+  xp        Int      @default(0)
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, day])
 }
