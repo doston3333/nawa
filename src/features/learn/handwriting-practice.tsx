@@ -31,18 +31,22 @@ export function HandwritingPractice({ glyph, onComplete }: { glyph: string; onCo
   };
   const start = (event: React.PointerEvent<SVGSVGElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
-    active.current = [pointFor(event)];
+    const stroke = [pointFor(event)];
+    active.current = stroke;
+    setStrokes((current) => [...current, stroke]);
+    setRedo([]);
   };
   const move = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!active.current) return;
-    active.current = [...active.current, pointFor(event)];
-    setStrokes((current) => [...current.slice(0, -1), active.current!]);
+    const stroke = [...active.current, pointFor(event)];
+    active.current = stroke;
+    setStrokes((current) => [...current.slice(0, -1), stroke]);
   };
   const end = () => {
     if (!active.current) return;
-    setStrokes((current) => [...current.slice(0, -1), active.current!]);
-    setRedo([]);
+    const stroke = active.current;
     active.current = null;
+    setStrokes((current) => [...current.slice(0, -1), stroke]);
   };
   return <div className="handwriting-practice">
     <svg className="handwriting-canvas" viewBox="0 0 360 180" role="img" aria-label={`Tracing canvas for ${glyph}`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
