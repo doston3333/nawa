@@ -9,6 +9,7 @@ import type {
   StepKind,
 } from "./types";
 import { validateCourseCatalog } from "./validate";
+import { buildRtlBaselineProgram } from "./rtl-baseline-unit";
 
 export * from "./types";
 export { validateCourseCatalog } from "./validate";
@@ -147,7 +148,11 @@ function unit(spec: UnitSpec, order: number, predecessor?: string): { unit: Cour
   };
 }
 
-const assembled = UNIT_SPECS.map((spec, index) => unit(spec, index + 1, index === 0 ? undefined : `${UNIT_SPECS[index - 1]!.id}-skill-8`));
+const rtlBaseline = buildRtlBaselineProgram();
+const assembled = [
+  rtlBaseline,
+  ...UNIT_SPECS.slice(1).map((spec, index) => unit(spec, index + 2, `${UNIT_SPECS[index]!.id}-skill-8`)),
+];
 
 export const ACTIVE_COURSE: CourseLevel = deepFreeze({
   id: "pre-a1-v1",

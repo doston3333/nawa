@@ -23,7 +23,7 @@ describe("InteractiveLessonStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "بَاب" }));
     fireEvent.click(screen.getByRole("button", { name: "Check answer" }));
     expect(screen.getByText("Incorrect")).toBeInTheDocument();
-    expect(screen.getByText("Rule: exact response")).toBeInTheDocument();
+    expect(screen.getByText("Use the exact response.")).toBeInTheDocument();
     expect(screen.queryByText(/Hint/i)).not.toBeInTheDocument();
   });
 });

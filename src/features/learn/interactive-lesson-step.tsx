@@ -71,7 +71,10 @@ export function InteractiveLessonStep({ step, onAdvance, submitting = false }: {
       <p className="interactive-step-kicker">{labels[step.kind]}{scored ? " · scored" : ""}</p>
       <h2 id={`${step.id}-title`}>{step.prompt}</h2>
       {step.arabic ? <p className="interactive-step-arabic" lang="ar" dir="rtl">{step.arabic}</p> : null}
-      {isTeaching ? <p className="interactive-step-rule">Rule: notice the model, then continue when you are ready.</p> : null}
+      {isTeaching ? <div className="interactive-step-teaching">
+        <p>{step.explanation ?? "Study the model before continuing."}</p>
+        <p className="interactive-step-rule"><strong>Rule:</strong> {step.rule ?? "Notice the model, then continue when you are ready."}</p>
+      </div> : null}
       {isHandwriting ? <HandwritingPractice glyph={step.arabic ?? "ا"} onComplete={setHandwriting} /> : null}
       {!isTeaching && !isHandwriting ? (
         <>
@@ -89,9 +92,9 @@ export function InteractiveLessonStep({ step, onAdvance, submitting = false }: {
       ) : null}
       {evaluation ? <div className={`interactive-step-feedback ${evaluation.correct ? "is-correct" : "is-incorrect"}`} role="status">
         <strong>{evaluation.correct ? "Correct" : "Incorrect"}</strong>
-        {evaluation.reason ? <p>{evaluation.reason}</p> : null}
-        <p>Rule: {step.exercise!.acceptedAnswer.policy === "EXACT" ? "exact response" : step.exercise!.acceptedAnswer.policy.replaceAll("_", " ").toLocaleLowerCase()}</p>
-        <p>Contrast: compare your response with the prompt’s Arabic model, right to left.</p>
+        <p>{evaluation.correct ? step.exercise!.feedback?.correct : step.exercise!.feedback?.incorrect ?? evaluation.reason}</p>
+        <p><strong>Rule:</strong> {step.exercise!.feedback?.rule ?? (step.exercise!.acceptedAnswer.policy === "EXACT" ? "Use the exact response." : `Use ${step.exercise!.acceptedAnswer.policy.replaceAll("_", " ").toLocaleLowerCase()}.`)}</p>
+        <p><strong>Contrast:</strong> {step.exercise!.feedback?.contrast ?? "Compare your response with the Arabic model."}</p>
       </div> : null}
       <div className="task-actions">
         {!evaluation && !isHandwriting ? <button type="button" className="primary-action" onClick={check} disabled={submitting || (!isTeaching && !answer.trim())}>{isTeaching ? "Continue" : "Check answer"}</button> : isHandwriting ? <button type="button" className="primary-action" onClick={advance} disabled={submitting || !handwriting}>Continue</button> : <button type="button" className="primary-action" onClick={advance} disabled={submitting}>Continue</button>}

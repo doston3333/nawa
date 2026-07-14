@@ -35,6 +35,12 @@ export interface ExerciseDefinition {
   promptArabic?: string;
   choices?: readonly string[];
   acceptedAnswer: AcceptedAnswer;
+  feedback?: {
+    correct: string;
+    incorrect: string;
+    rule: string;
+    contrast: string;
+  };
 }
 
 export interface AssessmentDefinition {
@@ -54,6 +60,8 @@ interface LessonStepBase {
 
 export interface TeachingStep extends LessonStepBase {
   kind: "TEACHING";
+  explanation?: string;
+  rule?: string;
   exercise?: never;
   handwritingTemplateId?: never;
 }

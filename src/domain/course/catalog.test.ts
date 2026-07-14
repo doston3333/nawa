@@ -74,3 +74,25 @@ it("uses named, varied Pre-A1 lesson material instead of placeholder lessons", (
     expect(new Set(coreLessons.map((lesson) => lesson.steps[0]!.arabic)).size, unit.id).toBeGreaterThanOrEqual(5);
   }
 });
+
+it("publishes Unit 1 as an editorially authored learning sequence", () => {
+  const unit = ACTIVE_COURSE.units[0]!;
+  const core = unit.lessons.filter((lesson) => lesson.kind === "LESSON");
+
+  for (const lesson of core) {
+    expect(lesson.steps.some((step) => step.prompt.includes("Practice this MSA")), lesson.id).toBe(false);
+    expect(new Set(lesson.steps.map((step) => step.prompt)).size, lesson.id).toBe(lesson.steps.length);
+    expect(lesson.steps.map((step) => step.kind)).toEqual(expect.arrayContaining(["TEACHING", "COMPARISON", "TYPING", "HANDWRITING", "SCORED_TEST"]));
+    for (const step of lesson.steps) {
+      if (step.kind === "TEACHING") {
+        expect(step.explanation, step.id).toBeTruthy();
+        expect(step.rule, step.id).toBeTruthy();
+      } else {
+        expect(step.exercise.feedback, step.id).toMatchObject({ rule: expect.any(String), contrast: expect.any(String) });
+      }
+    }
+  }
+  const checkpoint = unit.lessons.find((lesson) => lesson.kind === "CHECKPOINT")!;
+  expect(new Set(checkpoint.steps.map((step) => step.arabic)).size).toBeGreaterThanOrEqual(5);
+  expect(checkpoint.title).toBe("Direction and baseline checkpoint");
+});
