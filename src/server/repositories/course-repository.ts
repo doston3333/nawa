@@ -2,11 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { ACTIVE_COURSE } from "@/domain/course/catalog";
 import type { CourseLevel, LessonDefinition, SkillDefinition } from "@/domain/course/types";
-import { getActiveLessonById } from "@/domain/curriculum/path";
 import { ACTIVE_LESSONS, ACTIVE_UNITS } from "@/domain/curriculum/path";
-import { BEGINNER_ATOMS } from "@/domain/curriculum/seed";
-import { buildLessonPlan } from "@/domain/lessons/build-lesson-plan";
-import type { LearnPathView, SessionPlan, StudySessionView } from "@/domain/learning/types";
+import type { LearnPathView, SessionPlan, SessionTask, StudySessionView } from "@/domain/learning/types";
 import { db } from "@/server/db";
 import { ensureProfile, lockProfileWithinTransaction } from "@/server/repositories/study-repository";
 
@@ -56,6 +53,48 @@ export function validateActiveCourseSkill(courseId: string, curriculumVersion: n
   const skill = ACTIVE_COURSE.skills.find((item) => item.id === skillId);
   if (!skill) throw new Error("Skill not found");
   return skill;
+}
+
+/**
+ * The active course is authored as individual steps, so its durable session
+ * plan must retain that same sequence. Legacy generated plans remain only for
+ * historical sessions and the separate Study Room.
+ */
+function buildVersionedLessonPlan(input: {
+  sessionId: string;
+  profileId: string;
+  lesson: LessonDefinition;
+  now: string;
+}): SessionPlan {
+  const skill = ACTIVE_COURSE.skills.find((item) => item.id === input.lesson.skillIds[0]);
+  const atomId = skill?.vocabularyAtomIds[0] ?? "letter-alif";
+  const tasks: SessionTask[] = input.lesson.steps.map((step) => {
+    const choices = step.exercise?.choices ? [...step.exercise.choices] : null;
+    const responseMode = step.kind === "COMPOSITION" || step.kind === "HANDWRITING"
+      ? "WRITE"
+      : choices?.length ? "SELECT" : "TYPE";
+    return {
+      id: step.id,
+      stage: "LESSON",
+      kind: responseMode === "SELECT" ? "SELECT" : responseMode === "TYPE" ? "PRODUCE" : "LESSON",
+      atomIds: [atomId],
+      prompt: step.exercise?.prompt ?? step.prompt,
+      promptArabic: step.arabic ?? null,
+      expectedAnswer: step.exercise?.acceptedAnswer.values[0] ?? null,
+      estimatedMinutes: 1,
+      choices,
+      responseMode,
+    };
+  });
+  return {
+    id: input.sessionId,
+    profileId: input.profileId,
+    durationMinutes: 30,
+    createdAt: input.now,
+    tasks,
+    mode: "LESSON",
+    lessonId: input.lesson.id,
+  };
 }
 
 async function ensureEnrollment(
@@ -113,10 +152,13 @@ export async function startVersionedLessonSession(input: {
       }
       await tx.studySession.update({ where: { id: active.id }, data: { status: "COMPLETE" } });
     }
-    const legacyLesson = getActiveLessonById(input.lessonId);
-    if (!legacyLesson) throw new Error("Lesson not found");
     const sessionId = randomUUID();
-    const plan = buildLessonPlan({ sessionId, profileId: input.profileId, lesson: legacyLesson, atoms: BEGINNER_ATOMS, now: input.now });
+    const plan = buildVersionedLessonPlan({
+      sessionId,
+      profileId: input.profileId,
+      lesson: courseLesson,
+      now: input.now,
+    });
     await tx.studySession.create({
       data: {
         id: sessionId, profileId: input.profileId, durationMinutes: 30, plan: plan as unknown as Prisma.InputJsonValue,

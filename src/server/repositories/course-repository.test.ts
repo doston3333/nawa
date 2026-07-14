@@ -55,6 +55,20 @@ it("keeps legacy lesson records isolated from versioned-course completion and en
   expect(await db.lessonProgress.findUnique({ where: { profileId_lessonId: { profileId, lessonId: "script-1" } } })).toMatchObject({ status: "COMPLETE" });
 });
 
+it("creates a session task for every authored course lesson step", async () => {
+  const lesson = ACTIVE_COURSE.units[0]!.lessons[0]!;
+  const started = await startVersionedLessonSession({
+    profileId: otherProfileId,
+    courseId: ACTIVE_COURSE.id,
+    curriculumVersion: ACTIVE_COURSE.version,
+    lessonId: lesson.id,
+    now: "2026-07-14T00:00:00.000Z",
+  });
+
+  expect(started.plan.tasks.map((task) => task.id)).toEqual(lesson.steps.map((step) => step.id));
+  expect(started.plan.tasks).toHaveLength(lesson.steps.length);
+});
+
 it("projects only versioned skill progress into the public active path", async () => {
   const first = ACTIVE_COURSE.units[0]!.lessons[0]!;
   await db.lessonProgress.create({ data: { profileId: otherProfileId, lessonId: first.id, status: "COMPLETE", scoreCorrect: 9, scoreTotal: 9 } });
