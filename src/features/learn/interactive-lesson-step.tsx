@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { LessonStep } from "@/domain/course/types";
 import { evaluateLessonAnswer, type LessonAnswerEvaluation } from "./lesson-evaluator";
+import { HandwritingPractice, type HandwritingResult } from "./handwriting-practice";
 
 export interface InteractiveStepSubmission {
   answer: string;
@@ -12,6 +13,7 @@ export interface InteractiveStepSubmission {
   exerciseType: LessonStep["kind"];
   responseMode: "SELECT" | "TYPE" | "WRITE";
   startedAt: string;
+  handwritingMetrics?: Record<string, unknown>;
 }
 
 const labels: Record<LessonStep["kind"], string> = {
@@ -32,6 +34,7 @@ export function InteractiveLessonStep({ step, onAdvance, submitting = false }: {
 }) {
   const [answer, setAnswer] = useState("");
   const [evaluation, setEvaluation] = useState<LessonAnswerEvaluation | null>(null);
+  const [handwriting, setHandwriting] = useState<HandwritingResult | null>(null);
   const [startedAt] = useState(() => new Date().toISOString());
   const isTeaching = step.kind === "TEACHING";
   const isHandwriting = step.kind === "HANDWRITING";
@@ -40,14 +43,23 @@ export function InteractiveLessonStep({ step, onAdvance, submitting = false }: {
   const scored = step.scored || step.kind === "SCORED_TEST";
 
   const check = () => {
-    if (isTeaching || isHandwriting) {
+    if (isTeaching) {
       void onAdvance();
       return;
     }
     setEvaluation(evaluateLessonAnswer(step.exercise.acceptedAnswer, answer));
   };
   const advance = () => {
-    if (!evaluation || isTeaching || isHandwriting) return;
+    if ((!evaluation && !isHandwriting) || isTeaching || (isHandwriting && !handwriting)) return;
+    if (isHandwriting && handwriting) {
+      void onAdvance({
+        answer: step.exercise.acceptedAnswer.values[0] ?? "", correct: handwriting.metrics.passed,
+        errorClassification: handwriting.metrics.passed ? null : "HANDWRITING_SHAPE", hintUsed: false,
+        exerciseType: step.kind, responseMode: "WRITE", startedAt, handwritingMetrics: { ...handwriting.metrics, strokes: handwriting.strokes },
+      });
+      return;
+    }
+    if (!evaluation) return;
     void onAdvance({
       answer, correct: evaluation.correct, errorClassification: evaluation.errorClassification,
       hintUsed: false, exerciseType: step.kind, responseMode: selectMode ? "SELECT" : step.kind === "COMPOSITION" ? "WRITE" : "TYPE", startedAt,
@@ -60,7 +72,7 @@ export function InteractiveLessonStep({ step, onAdvance, submitting = false }: {
       <h2 id={`${step.id}-title`}>{step.prompt}</h2>
       {step.arabic ? <p className="interactive-step-arabic" lang="ar" dir="rtl">{step.arabic}</p> : null}
       {isTeaching ? <p className="interactive-step-rule">Rule: notice the model, then continue when you are ready.</p> : null}
-      {isHandwriting ? <p className="interactive-step-unavailable">Handwriting practice is coming soon. This lesson records no handwriting score yet.</p> : null}
+      {isHandwriting ? <HandwritingPractice glyph={step.arabic ?? "ا"} onComplete={setHandwriting} /> : null}
       {!isTeaching && !isHandwriting ? (
         <>
           <p className="interactive-step-instruction">{step.exercise.prompt}</p>
@@ -82,7 +94,7 @@ export function InteractiveLessonStep({ step, onAdvance, submitting = false }: {
         <p>Contrast: compare your response with the prompt’s Arabic model, right to left.</p>
       </div> : null}
       <div className="task-actions">
-        {!evaluation ? <button type="button" className="primary-action" onClick={check} disabled={submitting || (!isTeaching && !isHandwriting && !answer.trim())}>{isTeaching || isHandwriting ? "Continue" : "Check answer"}</button> : <button type="button" className="primary-action" onClick={advance} disabled={submitting}>Continue</button>}
+        {!evaluation && !isHandwriting ? <button type="button" className="primary-action" onClick={check} disabled={submitting || (!isTeaching && !answer.trim())}>{isTeaching ? "Continue" : "Check answer"}</button> : isHandwriting ? <button type="button" className="primary-action" onClick={advance} disabled={submitting || !handwriting}>Continue</button> : <button type="button" className="primary-action" onClick={advance} disabled={submitting}>Continue</button>}
       </div>
     </section>
   );

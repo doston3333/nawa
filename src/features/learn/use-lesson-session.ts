@@ -61,6 +61,7 @@ function buildInteractiveEvidence(task: SessionTask, submission: InteractiveStep
     responseTimeMs: event.latencyMs,
     hintUsed: submission.hintUsed,
     errorClassification: submission.errorClassification,
+    handwritingMetrics: submission.handwritingMetrics,
   };
 }
 

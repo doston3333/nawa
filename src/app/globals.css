@@ -225,6 +225,15 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   font-weight: 650;
 }
 
+.handwriting-practice { display: grid; gap: 0.75rem; margin: 1rem 0; }
+.handwriting-canvas { width: min(100%, 32rem); touch-action: none; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-raised); }
+.handwriting-baseline { stroke: var(--border-strong); stroke-dasharray: 4 5; fill: none; }
+.handwriting-model { font-family: var(--font-arabic); font-size: 104px; fill: color-mix(in oklab, var(--sage-deep) 64%, transparent); user-select: none; }
+.handwriting-stroke { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.handwriting-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.handwriting-toolbar button { padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); }
+.handwriting-score { margin: 0; color: var(--ink-soft); }
+
 .profile-create-row input {
   flex: 1 1 12rem;
   min-height: 2.75rem;
