@@ -8,7 +8,7 @@ primary_region = "iad"
   dockerfile = "Dockerfile"
 
 [env]
-  ENABLE_PUBLIC_DEMO = "true"
+  ENABLE_PUBLIC_DEMO = "false"
   PORT = "3000"
 
 [http_service]

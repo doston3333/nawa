@@ -2,6 +2,10 @@
 
 Nawa is a private, personal Modern Standard Arabic reading and writing workspace for two or three people. Each person selects a named, passwordless profile. Profiles are separate, and the same profile can be opened on more than one device.
 
+Licensed under MIT.
+
+**Shipped today:** sequenced MSA lessons, handwriting practice, profiles, IndexedDB outbox + Postgres sync, backups. **Not shipped:** OCR, translation, contextual AI analysis, PDF/image Reader, and Notebook — those are planned online-only actions, not implemented features.
+
 The application is local-first. Previously opened learning shells and lesson data remain usable without a connection. Offline lesson progress is saved in the browser outbox and synchronizes once when the browser reconnects. Ordinary reading and writing never wait for an AI service. OCR, translation, contextual Arabic analysis, and future PDF/image processing are explicitly online-only actions.
 
 ## Prerequisites

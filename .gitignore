@@ -6,5 +6,7 @@ test-results/
 coverage/
 .data/
 src/generated/prisma/
+.DS_Store
+.superpowers/
 
 tsconfig.tsbuildinfo
